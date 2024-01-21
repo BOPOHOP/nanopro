@@ -194,7 +194,7 @@ if __name__ == '__main__':
                 time.sleep(2)
                 shproto.dispatcher.process_03("-dbg 1 9000")
                 time.sleep(2)
-                shproto.dispatcher.process_03("-fall 110")
+                shproto.dispatcher.process_03("-fall {:d}".format(110 + shproto.port.pileup_skip))
                 time.sleep(2)
                 shproto.dispatcher.process_03("-mode2")
                 time.sleep(2)
