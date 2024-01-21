@@ -59,6 +59,8 @@ pulse_avg_wanted = 1000
 pileup_skip      = 8
 pulse_avg_min     = 150	# DAC value
 pulse_avg_max     = 1800	# DAC value
+noise_threshold   = 14
+noise_level       = 0
 
 def start(sn=None):
     shproto.dispatcher.pulse_file_opened = 2
@@ -280,7 +282,8 @@ def process_01(filename):
                                         break
                                 center_idx = i
                                 # print("pulse max {} at {}".format(v_max, center_idx))
-                                if (v_max >= shproto.dispatcher.pulse_avg_min and v_max <= shproto.dispatcher.pulse_avg_max):
+                                if (v_max >= shproto.dispatcher.pulse_avg_min and v_max <= shproto.dispatcher.pulse_avg_max
+                                            and  max(pulse[center_idx + shproto.dispatcher.pileup_skip:]) < v_max * 0.1):
                                     # print("pulse is good")
                                     pulse_avg_count += 1
                                     # print("from {} to {}".format(max(0, center_idx-pulse_avg_center), min(pulse_avg_size-pulse_avg_center, len(pulse))))
