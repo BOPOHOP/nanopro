@@ -155,8 +155,6 @@ def start(sn=None):
             elif response.cmd == shproto.MODE_PULSE:
                 #print("<< got pulse", fd_pulses)
                 shproto.dispatcher.pkts01 += 1
-                # offset = response.payload[0] & 0xFF | ((response.payload[1] & 0xFF) << 8)
-                offset = unpack("<H", bytes(response.payload[0:2]))[0]
                 count = int((response.len - 2) / 2)
                 format_unpack_str = "<{}H".format(count)
                 format_print_str = "{}{:d}:d{}".format("{", count, "}")
