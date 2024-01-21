@@ -95,7 +95,7 @@ if __name__ == '__main__':
     if args.verbose:
         shproto.dispatcher.verbose = 1
     else:
-        shproto.dispatcher.verbose = 1
+        shproto.dispatcher.verbose = 0
 
     if not args.skip_help:
         helptxt()
@@ -184,8 +184,34 @@ if __name__ == '__main__':
                 shproto.port.pulse_avg_min    = int(m.group(4))
                 shproto.port.pulse_avg_max    = int(m.group(5))
                 shproto.dispatcher.csv_out    = 1
-                shproto.dispatcher.verbose    = 1
-                shproto.dispatcher.pulse_avg_mode    = True
+                # shproto.dispatcher.verbose    = 1
+                noise_calc_time               = 180
+                # noise_calc_time               = 15
+
+                print("preparing for noise level calculation ({}sec)".format(noise_calc_time))
+                shproto.dispatcher.process_03("-sto")
+                time.sleep(2)
+                shproto.dispatcher.process_03("-mode 1")
+                time.sleep(2)
+                shproto.dispatcher.process_03("-sta")
+                time.sleep(2)
+                shproto.dispatcher.pulse_avg_mode    = 2
+                if shproto.dispatcher.spec_stopflag == 1:
+                    spec.start()
+                print("starting noise level calculation ({}sec)".format(noise_calc_time))
+                time.sleep(noise_calc_time + 2)
+                shproto.dispatcher.process_03("-sto")
+                time.sleep(2)
+                shproto.dispatcher.process_03("-mode 0")
+                time.sleep(2)
+                print("\nAvegare noise level {:.3f} {:d} samples\n".format(
+                        shproto.dispatcher.noise_level, shproto.dispatcher.noise_sum_count))
+                shproto.dispatcher.spec_stop()
+                time.sleep(2)
+                spec = threading.Thread(target=shproto.dispatcher.process_01, args=(spec_file,))
+                time.sleep(1)
+
+                shproto.dispatcher.pulse_avg_mode    = 1
                 print("starting pulse ageraging for {} pulses in range {} - {}, assuming -fall={}".
                         format(shproto.port.pulse_avg_wanted, shproto.port.pulse_avg_min,
                                 shproto.port.pulse_avg_max, shproto.port.pileup_skip))
@@ -198,7 +224,7 @@ if __name__ == '__main__':
                 time.sleep(2)
                 shproto.dispatcher.process_03("-mode2")
                 time.sleep(2)
-                shproto.dispatcher.process_03("-sto")
+                shproto.dispatcher.process_03("-sta")
                 if shproto.dispatcher.spec_stopflag == 1:
                     spec.start()
                 continue

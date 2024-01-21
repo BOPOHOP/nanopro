@@ -47,20 +47,19 @@ start_timestamp = datetime.now(timezone.utc)
 xml_out = 1
 csv_out = 1
 
-verbose = 1
 interspec_csv = 1
-verbose = 1
+verbose = 0
 hide_next_responce = False
 hide_next_responce_lock  = threading.Lock()
 
-pulse_avg_mode   = False
-# pulse_avg_mode   = True
+pulse_avg_mode   = 0
 pulse_avg_wanted = 1000
 pileup_skip      = 8
 pulse_avg_min     = 150	# DAC value
 pulse_avg_max     = 1800	# DAC value
 noise_threshold   = 14
 noise_level       = 0
+noise_sum_count   = 0
 
 def start(sn=None):
     shproto.dispatcher.pulse_file_opened = 2
@@ -215,6 +214,11 @@ def process_01(filename):
     pulse_avg_count   = 0
     pulse_avg_printed = 0
 
+    noise_sum         = 0
+    shproto.dispatcher.noise_sum_count   = 0
+    noise_sum_count_prev = 0
+    noise_sum_prev       = 0
+
     print("Start writing spectrum to file: {}".format(filename))
     print("avg mode: {}".format(shproto.dispatcher.pulse_avg_mode))
     with shproto.dispatcher.spec_stopflag_lock:
@@ -269,7 +273,7 @@ def process_01(filename):
                         shproto.dispatcher.pulses_debug_count += len(shproto.dispatcher.pulses_buf)
                         shproto.dispatcher.pulses_buf = []
 
-                    if shproto.dispatcher.pulse_avg_mode:
+                    if shproto.dispatcher.pulse_avg_mode == 1:
                         if shproto.dispatcher.pulse_avg_wanted > pulse_avg_count:
                             for pulse in pulses:
                                 v_max = 0
@@ -287,10 +291,11 @@ def process_01(filename):
                                     # print("pulse is good")
                                     pulse_avg_count += 1
                                     # print("from {} to {}".format(max(0, center_idx-pulse_avg_center), min(pulse_avg_size-pulse_avg_center, len(pulse))))
-                                    for i in range(max(0,center_idx - pulse_avg_center),
-                                            min(pulse_avg_size - pulse_avg_center, len(pulse))):
+                                    range_start = max(0,center_idx - pulse_avg_center) + pulse_avg_center - center_idx
+                                    range_end   = min(pulse_avg_size - pulse_avg_center, len(pulse)) + pulse_avg_center - center_idx
+                                    for i in range(range_start, range_end):
                                         #  print("agv[{}] += pulse[{}]".format(pulse_avg_center - center_idx + i, i))
-                                        pulse_avg[pulse_avg_center - center_idx + i] += pulse[i]
+                                        pulse_avg[i] += pulse[i - pulse_avg_center + center_idx]
                             print("pulse averaging collected in range: {} pulses total: {}".format(
                                     pulse_avg_count, shproto.dispatcher.pulses_debug_count))
                         else: # ! (pulse_avg_wanted > pulse_avg_count)
@@ -312,21 +317,57 @@ def process_01(filename):
                                 print("pulse fall: {}".format(','.join("{:.3f}".format(p) 
                                         for p in pulse_avg_normal[pulse_avg_center+1:idx_stop+1])))
                                 print("pileup skip {}".format(shproto.dispatcher.pileup_skip))
-                                print("setup command: -pileup {}".format(' '.join("{:.3f}".format(p) 
+                                print("setup command w   noise: -pileup {}".format(' '.join("{:.3f}".format(p) 
                                         for p in pulse_avg_normal[pulse_avg_center + shproto.dispatcher.pileup_skip + 1
                                                 :min(100 + pulse_avg_center + shproto.dispatcher.pileup_skip, pulse_avg_size)])))
-                                print("shape: {}".format(','.join("{:.2f}".format(p) 
-                                        for p in pulse_avg_normal)))
+                                print("setup command w/o noise: -pileup {}".format(' '.join("{:.3f}"
+                                                .format(p - shproto.dispatcher.noise_level * pulse_avg_count / avg_max) 
+                                        for p in pulse_avg_normal[pulse_avg_center + shproto.dispatcher.pileup_skip + 1
+                                                :min(100 + pulse_avg_center + shproto.dispatcher.pileup_skip, pulse_avg_size)])))
+                                print("shape_f: {}".format(','.join("{:.3f}".format(p) 
+                                        for p in pulse_avg_normal[range_start:range_end])))
+                                print("shape_i: {}".format(','.join("{:d}".format(int(p/pulse_avg_count)) 
+                                        for p in pulse_avg[range_start:range_end])))
+                            shproto.dispatcher.process_03("-sto")
+                            time.sleep(2)
                             shproto.dispatcher.process_03("-fall {:d}".format(shproto.port.pileup_skip))
                             time.sleep(2)
                             shproto.dispatcher.process_03("-pthr 1")
                             time.sleep(2)
-                            shproto.dispatcher.process_03("-mode0")
+                            shproto.dispatcher.process_03("-mode 0")
                             time.sleep(2)
                             shproto.dispatcher.spec_stop()
                             shproto.dispatcher.pulse_avg_mode = False
     
-                    else: # !pulse_avg_mode
+                    if shproto.dispatcher.pulse_avg_mode == 2:
+                            for pulse in pulses:
+                                pulse[len(pulse) - 2] = 4095
+                                v_max = 0
+                                no_pulse_idx_start = 0
+                                for i, v in enumerate(pulse):
+                                    if i <= no_pulse_idx_start:
+                                        continue
+                                    if v < shproto.dispatcher.noise_threshold:
+                                        continue
+                                    else:
+                                        if i - no_pulse_idx_start >= 100:
+                                            noise_sum += sum(pulse[no_pulse_idx_start:i])
+                                            shproto.dispatcher.noise_sum_count += i - no_pulse_idx_start
+                                            shproto.dispatcher.noise_level = noise_sum/shproto.dispatcher.noise_sum_count
+                                            # print("no pulse: {:d}-{:d} total count: {:d} avg_noise: {:.2f}"
+                                            #         .format(no_pulse_idx_start, i-1, shproto.dispatcher.noise_sum_count,
+                                            #                 shproto.dispatcher.noise_level))
+                                        no_pulse_idx_start = i + 100
+                            if (shproto.dispatcher.noise_sum_count - noise_sum_count_prev) > 0:
+                                noise_level_delta = ((noise_sum - noise_sum_prev)
+                                        / (shproto.dispatcher.noise_sum_count - noise_sum_count_prev))
+                            noise_sum_count_prev = shproto.dispatcher.noise_sum_count
+                            noise_sum_prev       = noise_sum
+                            print("noise collector: total count: {:d} avg_noise: {:.2f} now: {:.2f}"
+                                    .format(shproto.dispatcher.noise_sum_count,
+                                            shproto.dispatcher.noise_level, noise_level_delta))
+
+                    if shproto.dispatcher.pulse_avg_mode == 0:
                         if len(pulses) > 0 and shproto.dispatcher.pulse_file_opened != 1 and (fd_pulses := open(filename_pulses, "w+")):
                             shproto.dispatcher.pulse_file_opened = 1
                         if shproto.dispatcher.pulse_file_opened == 1:
@@ -344,12 +385,14 @@ def process_01(filename):
 
 
 
-            print("elapsed: {}/{:.0f} cps: {}/{:.2f} total_pkts: {} drop_pkts: {} lostImp: {} cpu: {} dbg_pulses: {}".format(
-               shproto.dispatcher.total_time, (datetime.now(timezone.utc) - shproto.dispatcher.start_timestamp).total_seconds(),
-               shproto.dispatcher.cps, spec_pulses_total_cps,
-               shproto.dispatcher.total_pkts, shproto.dispatcher.dropped,
-               shproto.dispatcher.lost_impulses, shproto.dispatcher.cpu_load,
-               shproto.dispatcher.pulses_debug_count))
+            if shproto.dispatcher.verbose:
+                print("elapsed: {}/{:.0f} cps: {}/{:.2f} total_pkts: {} drop_pkts: {} lostImp: {} cpu: {} dbg_pulses: {}".format(
+                   shproto.dispatcher.total_time, (datetime.now(timezone.utc) - shproto.dispatcher.start_timestamp).total_seconds(),
+                   shproto.dispatcher.cps, spec_pulses_total_cps,
+                   shproto.dispatcher.total_pkts, shproto.dispatcher.dropped,
+                   shproto.dispatcher.lost_impulses, shproto.dispatcher.cpu_load,
+                   shproto.dispatcher.pulses_debug_count))
+
     if (shproto.dispatcher.pulse_file_opened == 1):
         fd_pulses.close()
         shproto.dispatcher.pulse_file_opened = 0
