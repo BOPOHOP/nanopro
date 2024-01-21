@@ -198,7 +198,7 @@ if __name__ == '__main__':
                 time.sleep(2)
                 shproto.dispatcher.process_03("-mode2")
                 time.sleep(2)
-                shproto.dispatcher.process_03("-sta")
+                shproto.dispatcher.process_03("-sto")
                 if shproto.dispatcher.spec_stopflag == 1:
                     spec.start()
                 continue
