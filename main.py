@@ -1,3 +1,4 @@
+#! /usr/bin/python3
 import shproto.dispatcher
 import shproto.alert
 import time
