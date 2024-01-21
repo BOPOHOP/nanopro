@@ -52,7 +52,6 @@ def helptxt():
 
 
 if __name__ == '__main__':
-    helptxt()
 
     parser = argparse.ArgumentParser(
         prog='ProgramName',
@@ -65,6 +64,7 @@ if __name__ == '__main__':
     parser.add_argument('-x', '--xml', action='store_true')
     parser.add_argument('-a', '--autostart', action='store_true')
     parser.add_argument('-v', '--verbose', action='store_true')
+    parser.add_argument('-s', '--skip_help', action='store_true')
 
     args = parser.parse_args()
     if not args.device == '':
@@ -97,6 +97,8 @@ if __name__ == '__main__':
     else:
         shproto.dispatcher.verbose = 1
 
+    if not args.skip_help:
+        helptxt()
 
     print("Found devices: {}".format(shproto.port.getallportsastext()))
     dispatcher = threading.Thread(target=shproto.dispatcher.start)
@@ -163,11 +165,42 @@ if __name__ == '__main__':
                 shproto.port.port_speed = m.group(2)
                 print("port speed set to {}... reconnect".format(shproto.port.port_speed))
                 shproto.dispatcher.stop()
+                time.sleep(1)
                 with shproto.dispatcher.stopflag_lock:
                     shproto.dispatcher.stopflag = 0
                 dispatcher = threading.Thread(target=shproto.dispatcher.start)
                 dispatcher.start()
                 time.sleep(1)
+                continue
+            # pulse_average pulses fall min_dac max_dac
+            if m := re.search("^(pulse_average)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)", command):
+                shproto.dispatcher.spec_stop()
+                time.sleep(2)
+                spec = threading.Thread(target=shproto.dispatcher.process_01, args=(spec_file,))
+                time.sleep(1)
+
+                shproto.port.pulse_avg_wanted = int(m.group(2))
+                shproto.port.pileup_skip      = int(m.group(3))
+                shproto.port.pulse_avg_min    = int(m.group(4))
+                shproto.port.pulse_avg_max    = int(m.group(5))
+                shproto.dispatcher.csv_out    = 1
+                shproto.dispatcher.verbose    = 1
+                shproto.dispatcher.pulse_avg_mode    = True
+                print("starting pulse ageraging for {} pulses in range {} - {}, assuming -fall={}".
+                        format(shproto.port.pulse_avg_wanted, shproto.port.pulse_avg_min,
+                                shproto.port.pulse_avg_max, shproto.port.pileup_skip))
+
+                shproto.dispatcher.process_03("-pthr 8192")
+                time.sleep(2)
+                shproto.dispatcher.process_03("-dbg 1 9000")
+                time.sleep(2)
+                shproto.dispatcher.process_03("-fall 110")
+                time.sleep(2)
+                shproto.dispatcher.process_03("-mode2")
+                time.sleep(2)
+                shproto.dispatcher.process_03("-sta")
+                if shproto.dispatcher.spec_stopflag == 1:
+                    spec.start()
                 continue
             if command in shproto.port.getallportssn() or re.match("^/", command):
                 print("Connect to device: {}".format(shproto.port.getportbyserialnumber(command)))

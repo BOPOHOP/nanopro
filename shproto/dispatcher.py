@@ -53,6 +53,13 @@ verbose = 1
 hide_next_responce = False
 hide_next_responce_lock  = threading.Lock()
 
+pulse_avg_mode   = False
+# pulse_avg_mode   = True
+pulse_avg_wanted = 1000
+pileup_skip      = 8
+pulse_avg_min     = 150	# DAC value
+pulse_avg_max     = 1800	# DAC value
+
 def start(sn=None):
     shproto.dispatcher.pulse_file_opened = 2
     # READ_BUFFER = 1
@@ -103,7 +110,7 @@ def start(sn=None):
                     if re.search('^VERSION', resp_decoded):
                         shproto.dispatcher.inf_str = resp_decoded
                         shproto.dispatcher.inf_str = shproto.dispatcher.inf_str.rstrip()
-                        shproto.dispatcher.inf_str = re.sub(r'\[[^]]*\]', '...', shproto.dispatcher.inf_str, count = 2)
+                        # shproto.dispatcher.inf_str = re.sub(r'\[[^]]*\]', '...', shproto.dispatcher.inf_str, count = 2)
                 except UnicodeDecodeError:
                     print("Unknown non-text response.")
                 if (not shproto.dispatcher.hide_next_responce and not re.search('^mi.*index.*', resp_decoded)):
@@ -153,7 +160,7 @@ def start(sn=None):
                         print("histogram index is out of range: {} - {} c:{}".format(offset, offset+count, offset+count))
                 response.clear()
             elif response.cmd == shproto.MODE_PULSE:
-                #print("<< got pulse", fd_pulses)
+                # print("<< got pulse")
                 shproto.dispatcher.pkts01 += 1
                 count = int((response.len - 2) / 2)
                 format_unpack_str = "<{}H".format(count)
@@ -199,7 +206,15 @@ def process_01(filename):
     filename_xml = re.sub(r'\.csv$', '', filename, flags=re.IGNORECASE)
     filename_xml = filename_xml + ".xml"
     timer = 0
+
+    pulse_avg_center  = 100
+    pulse_avg_size    = 301
+    pulse_avg         = [0] * pulse_avg_size
+    pulse_avg_count   = 0
+    pulse_avg_printed = 0
+
     print("Start writing spectrum to file: {}".format(filename))
+    print("avg mode: {}".format(shproto.dispatcher.pulse_avg_mode))
     with shproto.dispatcher.spec_stopflag_lock:
         shproto.dispatcher.spec_stopflag = 0
     while not (shproto.dispatcher.spec_stopflag or shproto.dispatcher.stopflag):
@@ -212,8 +227,11 @@ def process_01(filename):
             spec_pulses_total = sum(histogram)
             spec_pulses_total_cps = 0
             spec_timestamp = datetime.now(timezone.utc) - timedelta(seconds=shproto.dispatcher.total_time)
-            if shproto.dispatcher.total_time > 0:
-                spec_pulses_total_cps = float(spec_pulses_total) / float(shproto.dispatcher.total_time)
+            if shproto.dispatcher.total_time > 0 or len(shproto.dispatcher.pulses_buf) > 0:
+                if shproto.dispatcher.total_time == 0:
+                    spec_pulses_total_cps = 0
+                else: 
+                    spec_pulses_total_cps = float(spec_pulses_total) / float(shproto.dispatcher.total_time)
                 if shproto.dispatcher.csv_out:
                     with open(filename, "w") as fd:
                         if shproto.dispatcher.interspec_csv:
@@ -244,15 +262,74 @@ def process_01(filename):
                             fd.writelines("{}, {}\n".format(i + 1, histogram[i]))
     
                     with shproto.dispatcher.histogram_lock:
+                        # print("{} pulses in buf".format(len(shproto.dispatcher.pulses_buf)))
                         pulses = shproto.dispatcher.pulses_buf
                         shproto.dispatcher.pulses_debug_count += len(shproto.dispatcher.pulses_buf)
                         shproto.dispatcher.pulses_buf = []
-                    if len(pulses) > 0 and shproto.dispatcher.pulse_file_opened != 1 and (fd_pulses := open(filename_pulses, "w+")):
-                        shproto.dispatcher.pulse_file_opened = 1
-                    if shproto.dispatcher.pulse_file_opened == 1:
-                        for pulse in pulses:
-                            fd_pulses.writelines("{}\n".format(' '.join("{:d}".format(p) for p in  pulse )))
-                        fd_pulses.flush()
+
+                    if shproto.dispatcher.pulse_avg_mode:
+                        if shproto.dispatcher.pulse_avg_wanted > pulse_avg_count:
+                            for pulse in pulses:
+                                v_max = 0
+                                for i, v in enumerate(pulse):
+                                    if v_max < v:
+                                        v_max = v
+                                    else:
+                                        if i > 0:
+                                            i -= 1
+                                        break
+                                center_idx = i
+                                # print("pulse max {} at {}".format(v_max, center_idx))
+                                if (v_max >= shproto.dispatcher.pulse_avg_min and v_max <= shproto.dispatcher.pulse_avg_max):
+                                    # print("pulse is good")
+                                    pulse_avg_count += 1
+                                    # print("from {} to {}".format(max(0, center_idx-pulse_avg_center), min(pulse_avg_size-pulse_avg_center, len(pulse))))
+                                    for i in range(max(0,center_idx - pulse_avg_center),
+                                            min(pulse_avg_size - pulse_avg_center, len(pulse))):
+                                        #  print("agv[{}] += pulse[{}]".format(pulse_avg_center - center_idx + i, i))
+                                        pulse_avg[pulse_avg_center - center_idx + i] += pulse[i]
+                            print("pulse averaging collected in range: {} pulses total: {}".format(
+                                    pulse_avg_count, shproto.dispatcher.pulses_debug_count))
+                        else: # ! (pulse_avg_wanted > pulse_avg_count)
+                            if not pulse_avg_printed and pulse_avg_count > 0:
+                                pulse_avg_printed = 1
+                                avg_max = max(pulse_avg)
+                                pulse_avg_normal = [(v/avg_max)  for v in pulse_avg]
+                                for idx_start in range(0, pulse_avg_center+1):
+                                    if pulse_avg[idx_start] != 0:
+                                        break
+                                for idx_stop in range(pulse_avg_size-1, pulse_avg_center+1, -1):
+                                    if pulse_avg[idx_stop] != 0:
+                                        break
+                                print("data buf from {} to {}".format(idx_start, idx_stop))
+                                print("{} pulses collected in range from {} to {}".format(pulse_avg_count,
+                                        shproto.dispatcher.pulse_avg_min, shproto.dispatcher.pulse_avg_max))
+                                print("pulse rise: {}".format(','.join("{:.3f}".format(p) 
+                                        for p in pulse_avg_normal[idx_start:pulse_avg_center+1])))
+                                print("pulse fall: {}".format(','.join("{:.3f}".format(p) 
+                                        for p in pulse_avg_normal[pulse_avg_center+1:idx_stop+1])))
+                                print("pileup skip {}".format(shproto.dispatcher.pileup_skip))
+                                print("setup command: -pileup {}".format(' '.join("{:.3f}".format(p) 
+                                        for p in pulse_avg_normal[pulse_avg_center + shproto.dispatcher.pileup_skip + 1
+                                                :min(100 + pulse_avg_center + shproto.dispatcher.pileup_skip, pulse_avg_size)])))
+                                print("shape: {}".format(','.join("{:.2f}".format(p) 
+                                        for p in pulse_avg_normal)))
+                            shproto.dispatcher.process_03("-fall {:d}".format(shproto.port.pileup_skip))
+                            time.sleep(2)
+                            shproto.dispatcher.process_03("-pthr 1")
+                            time.sleep(2)
+                            shproto.dispatcher.process_03("-mode0")
+                            time.sleep(2)
+                            shproto.dispatcher.spec_stop()
+                            shproto.dispatcher.pulse_avg_mode = False
+    
+                    else: # !pulse_avg_mode
+                        if len(pulses) > 0 and shproto.dispatcher.pulse_file_opened != 1 and (fd_pulses := open(filename_pulses, "w+")):
+                            shproto.dispatcher.pulse_file_opened = 1
+                        if shproto.dispatcher.pulse_file_opened == 1:
+                            for pulse in pulses:
+                                fd_pulses.writelines("{}\n".format(' '.join("{:d}".format(p) for p in  pulse )))
+                            fd_pulses.flush()
 
                 if shproto.dispatcher.xml_out:
                     xml = build_xml(histogram, shproto.dispatcher.calibration, shproto.dispatcher.total_time, 
