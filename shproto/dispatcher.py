@@ -49,6 +49,7 @@ csv_out = 1
 
 interspec_csv = 1
 verbose = 0
+verbose_prev = 0
 hide_next_responce = False
 hide_next_responce_lock  = threading.Lock()
 
@@ -298,7 +299,7 @@ def process_01(filename):
                                         pulse_avg[i] += pulse[i - pulse_avg_center + center_idx]
                             print("pulse averaging collected in range: {} pulses total: {}".format(
                                     pulse_avg_count, shproto.dispatcher.pulses_debug_count))
-                        else: # ! (pulse_avg_wanted > pulse_avg_count)
+                        if shproto.dispatcher.pulse_avg_wanted <= pulse_avg_count:
                             if not pulse_avg_printed and pulse_avg_count > 0:
                                 pulse_avg_printed = 1
                                 avg_max = max(pulse_avg)
@@ -330,12 +331,13 @@ def process_01(filename):
                                         for p in pulse_avg[range_start:range_end])))
                             shproto.dispatcher.process_03("-sto")
                             time.sleep(2)
-                            shproto.dispatcher.process_03("-fall {:d}".format(shproto.port.pileup_skip))
+                            shproto.dispatcher.process_03("-fall {:d}".format(shproto.dispatcher.pileup_skip))
                             time.sleep(2)
                             shproto.dispatcher.process_03("-pthr 1")
                             time.sleep(2)
                             shproto.dispatcher.process_03("-mode 0")
                             time.sleep(2)
+                            shproto.dispatcher.verbose = shproto.dispatcher.verbose_prev
                             shproto.dispatcher.spec_stop()
                             shproto.dispatcher.pulse_avg_mode = False
     
@@ -363,7 +365,7 @@ def process_01(filename):
                                         / (shproto.dispatcher.noise_sum_count - noise_sum_count_prev))
                             noise_sum_count_prev = shproto.dispatcher.noise_sum_count
                             noise_sum_prev       = noise_sum
-                            print("noise collector: total count: {:d} avg_noise: {:.2f} now: {:.2f}"
+                            print("noise collector: total count: {:d} avg_noise: {:.2f} last: {:.2f}"
                                     .format(shproto.dispatcher.noise_sum_count,
                                             shproto.dispatcher.noise_level, noise_level_delta))
 

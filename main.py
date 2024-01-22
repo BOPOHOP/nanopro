@@ -179,17 +179,20 @@ if __name__ == '__main__':
                 spec = threading.Thread(target=shproto.dispatcher.process_01, args=(spec_file,))
                 time.sleep(1)
 
-                shproto.port.pulse_avg_wanted = int(m.group(2))
-                shproto.port.pileup_skip      = int(m.group(3))
-                shproto.port.pulse_avg_min    = int(m.group(4))
-                shproto.port.pulse_avg_max    = int(m.group(5))
+                shproto.dispatcher.pulse_avg_wanted = int(m.group(2))
+                shproto.dispatcher.pileup_skip      = int(m.group(3))
+                shproto.dispatcher.pulse_avg_min    = int(m.group(4))
+                shproto.dispatcher.pulse_avg_max    = int(m.group(5))
                 shproto.dispatcher.csv_out    = 1
-                # shproto.dispatcher.verbose    = 1
-                noise_calc_time               = 180
-                # noise_calc_time               = 15
+                # noise_calc_time               = 180
+                noise_calc_time               = 15
+                shproto.dispatcher.verbose_prev = shproto.dispatcher.verbose
+                shproto.dispatcher.verbose    = 0
 
                 print("preparing for noise level calculation ({}sec)".format(noise_calc_time))
                 shproto.dispatcher.process_03("-sto")
+                time.sleep(2)
+                shproto.dispatcher.process_03("-pthr 8192")
                 time.sleep(2)
                 shproto.dispatcher.process_03("-mode 1")
                 time.sleep(2)
@@ -213,14 +216,14 @@ if __name__ == '__main__':
 
                 shproto.dispatcher.pulse_avg_mode    = 1
                 print("starting pulse ageraging for {} pulses in range {} - {}, assuming -fall={}".
-                        format(shproto.port.pulse_avg_wanted, shproto.port.pulse_avg_min,
-                                shproto.port.pulse_avg_max, shproto.port.pileup_skip))
+                        format(shproto.dispatcher.pulse_avg_wanted, shproto.dispatcher.pulse_avg_min,
+                                shproto.dispatcher.pulse_avg_max, shproto.dispatcher.pileup_skip))
 
                 shproto.dispatcher.process_03("-pthr 8192")
                 time.sleep(2)
                 shproto.dispatcher.process_03("-dbg 1 9000")
                 time.sleep(2)
-                shproto.dispatcher.process_03("-fall {:d}".format(110 + shproto.port.pileup_skip))
+                shproto.dispatcher.process_03("-fall {:d}".format(110 + shproto.dispatcher.pileup_skip))
                 time.sleep(2)
                 shproto.dispatcher.process_03("-mode2")
                 time.sleep(2)
