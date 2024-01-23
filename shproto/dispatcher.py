@@ -2,7 +2,7 @@ import sys
 import threading
 import time
 from datetime import datetime, timezone, timedelta
-from struct import *
+from struct import unpack
 import binascii
 import re
 import xml.etree.ElementTree as ET
@@ -88,9 +88,9 @@ def start(sn=None):
             nano.write(tx_packet.payload)
             with shproto.dispatcher.command_lock:
                 shproto.dispatcher.command = ""
-#        if nano.in_waiting == 0:
-#            time.sleep(0.05)
-#            continue
+        #        if nano.in_waiting == 0:
+        #            time.sleep(0.05)
+        #            continue
         READ_BUFFER = max(nano.in_waiting, READ_BUFFER)
         rx_byte_arr = nano.read(size=READ_BUFFER)
         # print("rx_byte_arr len = {}/{}".format(len(rx_byte_arr),READ_BUFFER))
@@ -123,51 +123,55 @@ def start(sn=None):
                 with shproto.dispatcher.hide_next_responce_lock:
                     shproto.dispatcher.hide_next_responce = False
                 if len(resp_lines) == 40:
-                    shproto.dispatcher.serial_number = resp_lines[39];
+                    shproto.dispatcher.serial_number = resp_lines[39]
                     print("got detector serial num: {}".format(shproto.dispatcher.serial_number))
-                    b_str =  ''
+                    b_str = ''
                     for b in resp_lines[0:10]:
                         b_str += b
-                    #crc = hex(binascii.crc32(bytearray(b_str, 'ascii')) % 2**32)
-                    crc = binascii.crc32(bytearray(b_str, 'ascii')) % 2**32
+                    # crc = hex(binascii.crc32(bytearray(b_str, 'ascii')) % 2**32)
+                    crc = binascii.crc32(bytearray(b_str, 'ascii')) % 2 ** 32
 
-                    if (crc == int(resp_lines[10],16)):
-                        shproto.dispatcher.calibration[0] = unpack('d', int((resp_lines[0] + resp_lines[1]),16).to_bytes(8, 'little'))[0]
-                        shproto.dispatcher.calibration[1] = unpack('d', int((resp_lines[2] + resp_lines[3]),16).to_bytes(8, 'little'))[0]
-                        shproto.dispatcher.calibration[2] = unpack('d', int((resp_lines[4] + resp_lines[5]),16).to_bytes(8, 'little'))[0]
-                        shproto.dispatcher.calibration[3] = unpack('d', int((resp_lines[6] + resp_lines[7]),16).to_bytes(8, 'little'))[0]
-                        shproto.dispatcher.calibration[4] = unpack('d', int((resp_lines[8] + resp_lines[9]),16).to_bytes(8, 'little'))[0]
-                        print("got calibration: {}".format(shproto.dispatcher.calibration)
-                            )
-                    #
+                    if crc == int(resp_lines[10], 16):
+                        shproto.dispatcher.calibration[0] = \
+                            unpack('d', int((resp_lines[0] + resp_lines[1]), 16).to_bytes(8, 'little'))[0]
+                        shproto.dispatcher.calibration[1] = \
+                            unpack('d', int((resp_lines[2] + resp_lines[3]), 16).to_bytes(8, 'little'))[0]
+                        shproto.dispatcher.calibration[2] = \
+                            unpack('d', int((resp_lines[4] + resp_lines[5]), 16).to_bytes(8, 'little'))[0]
+                        shproto.dispatcher.calibration[3] = \
+                            unpack('d', int((resp_lines[6] + resp_lines[7]), 16).to_bytes(8, 'little'))[0]
+                        shproto.dispatcher.calibration[4] = \
+                            unpack('d', int((resp_lines[8] + resp_lines[9]), 16).to_bytes(8, 'little'))[0]
+                        print("got calibration: {}".format(shproto.dispatcher.calibration))
                     else:
-                        print("wrong crc for calibration values got: {:08x} expected: {:08x}".format(int(resp_lines[10],16), crc))
-                    #
-                    #
-	
+                        print("wrong crc for calibration values got: {:08x} expected: {:08x}".format(
+                            int(resp_lines[10], 16), crc))
+
                 response.clear()
             elif response.cmd == shproto.MODE_HISTOGRAM:
-                #print("<< got histogram")
+                # print("<< got histogram")
                 shproto.dispatcher.pkts01 += 1
                 # offset = response.payload[0] & 0xFF | ((response.payload[1] & 0xFF) << 8)
                 offset = unpack("<H", bytes(response.payload[0:2]))[0]
                 count = int((response.len - 2) / 4)
-                ## print("histogram count: {} offset: {}".format(count, offset))
+                # print("histogram count: {} offset: {}".format(count, offset))
                 with shproto.dispatcher.histogram_lock:
-                    if (offset <= 8192 and offset+count <= 8192):
+                    if offset <= 8192 and offset + count <= 8192:
                         format_unpack_str = "<{}I".format(count)
-                        
-                        shproto.dispatcher.histogram[offset:offset+count] = list(unpack(format_unpack_str, bytes(response.payload[2:count*4+2])))
+
+                        shproto.dispatcher.histogram[offset:offset + count] = list(
+                            unpack(format_unpack_str, bytes(response.payload[2:count * 4 + 2])))
                     else:
-                        print("histogram index is out of range: {} - {} c:{}".format(offset, offset+count, offset+count))
+                        print("histogram index is out of range: {} - {} c:{}".format(offset, offset + count,
+                                                                                     offset + count))
                 response.clear()
             elif response.cmd == shproto.MODE_PULSE:
                 # print("<< got pulse")
                 shproto.dispatcher.pkts01 += 1
                 count = int((response.len - 2) / 2)
                 format_unpack_str = "<{}H".format(count)
-                format_print_str = "{}{:d}:d{}".format("{", count, "}")
-                pulse = list(unpack(format_unpack_str, bytes(response.payload[2:count*2+2])))
+                # format_print_str = "{}{:d}:d{}".format("{", count, "}")
+                pulse = list(unpack(format_unpack_str, bytes(response.payload[2:count * 2 + 2])))
                 # str3 = ' '.join("{:d}".format(p) for p in  pulse1)
                 # print("format: {} {} pulse unpack: {}".format(format_unpack_str, format_print_str, str3))
                 # for i in range(0, count):
@@ -192,21 +196,22 @@ def start(sn=None):
                     shproto.dispatcher.lost_impulses = unpack("<I", bytes(response.payload[10:14]))[0]
                 if response.len >= (15 + 2):
                     shproto.dispatcher.total_pulse_width = unpack("<I", bytes(response.payload[14:18]))[0]
-                #print("stat elapsed: {} cps: {} total: {} lost: {} cpu: {} total_pulse_width: {}".format(
-                #    shproto.dispatcher.total_time, shproto.dispatcher.cps, shproto.dispatcher.total_pkts,
-                #    shproto.dispatcher.lost_impulses, shproto.dispatcher.cpu_load, shproto.dispatcher.total_pulse_width))
+                # print("stat elapsed: {} cps: {} total: {} lost: {} cpu: {} total_pulse_width: {}".format(
+                #  shproto.dispatcher.total_time, shproto.dispatcher.cps, shproto.dispatcher.total_pkts,
+                #  shproto.dispatcher.lost_impulses, shproto.dispatcher.cpu_load, shproto.dispatcher.total_pulse_width))
                 response.clear()
             else:
                 print("Wtf received: cmd:{}\r\npayload: {}".format(response.cmd, response.payload))
                 response.clear()
     nano.close()
+    print("Close port")
 
 
 def process_01(filename):
     filename_pulses = re.sub(r'\.csv$', '', filename, flags=re.IGNORECASE)
-    filename_pulses = filename_pulses + "_pulses.dat"
+    filename_pulses += "_pulses.dat"
     filename_xml = re.sub(r'\.csv$', '', filename, flags=re.IGNORECASE)
-    filename_xml = filename_xml + ".xml"
+    filename_xml += ".xml"
     timer = 0
 
     pulse_avg_center  = 100
@@ -267,7 +272,7 @@ def process_01(filename):
                             print("histogram len too long {}".format(len(histogram)))
                         for i in range(0, len(histogram)):
                             fd.writelines("{}, {}\n".format(i + 1, histogram[i]))
-    
+
                     with shproto.dispatcher.histogram_lock:
                         # print("{} pulses in buf".format(len(shproto.dispatcher.pulses_buf)))
                         pulses = shproto.dispatcher.pulses_buf
@@ -381,37 +386,36 @@ def process_01(filename):
                             fd_pulses.flush()
 
                 if shproto.dispatcher.xml_out:
-                    xml = build_xml(histogram, shproto.dispatcher.calibration, shproto.dispatcher.total_time, 
-                        spec_timestamp, datetime.now(timezone.utc), shproto.dispatcher.serial_number, shproto.dispatcher.inf_str)
+                    xml = build_xml(histogram, shproto.dispatcher.calibration, shproto.dispatcher.total_time,
+                                    spec_timestamp, datetime.now(timezone.utc), shproto.dispatcher.serial_number,
+                                    shproto.dispatcher.inf_str)
                     ET.indent(xml, space=' ')
                     xml_str = ET.tostring(xml, encoding="utf-8", method="xml", xml_declaration=True)
                     with open(filename_xml, "w") as fd:
                         fd.write(xml_str.decode(encoding="utf-8"))
 
-
-
-            if shproto.dispatcher.verbose:
-                print("elapsed: {}/{:.0f} cps: {}/{:.2f} total_pkts: {} drop_pkts: {} lostImp: {} cpu: {} dbg_pulses: {}".format(
-                   shproto.dispatcher.total_time, (datetime.now(timezone.utc) - shproto.dispatcher.start_timestamp).total_seconds(),
-                   shproto.dispatcher.cps, spec_pulses_total_cps,
-                   shproto.dispatcher.total_pkts, shproto.dispatcher.dropped,
-                   shproto.dispatcher.lost_impulses, shproto.dispatcher.cpu_load,
-                   shproto.dispatcher.pulses_debug_count))
-
-    if (shproto.dispatcher.pulse_file_opened == 1):
+            print(
+                "elapsed: {}/{:.0f} cps: {}/{:.2f} total_pkts: {} drop_pkts: {} "
+                "lostImp: {} cpu: {} dbg_pulses: {}".format(
+                    shproto.dispatcher.total_time,
+                    (datetime.now(timezone.utc) - shproto.dispatcher.start_timestamp).total_seconds(),
+                    shproto.dispatcher.cps, spec_pulses_total_cps,
+                    shproto.dispatcher.total_pkts, shproto.dispatcher.dropped,
+                    shproto.dispatcher.lost_impulses, shproto.dispatcher.cpu_load,
+                    shproto.dispatcher.pulses_debug_count))
+    if shproto.dispatcher.pulse_file_opened == 1:
         fd_pulses.close()
         shproto.dispatcher.pulse_file_opened = 0
 
     print("Stop collecting spectrum")
 
 def build_xml(histogram, calibration, elapsed, start, end, dev_serialno, comment):
-    calibration_filtered = []
     for i in range(len(calibration), 0, -1):
-        if calibration[i-1] != 0:
+        if calibration[i - 1] != 0:
             break
     calibration = calibration[0:i]
-    #et = xml.etree.ElementTree('ResultDataFile')
-    ns = {"xmlns:xsd":"http://www.w3.org/2001/XMLSchema", "xmlns:xsi":"http://www.w3.org/2001/XMLSchema-instance"}
+    # et = xml.etree.ElementTree('ResultDataFile')
+    ns = {"xmlns:xsd": "http://www.w3.org/2001/XMLSchema", "xmlns:xsi": "http://www.w3.org/2001/XMLSchema-instance"}
     xmlroot = ET.Element("ResultDataFile", ns)
     FormatVersion = ET.SubElement(xmlroot, "FormatVersion")
     FormatVersion.text = "test"
@@ -432,19 +436,19 @@ def build_xml(histogram, calibration, elapsed, start, end, dev_serialno, comment
 
     EnergySpectrum = ET.SubElement(ResultData, "EnergySpectrum")
 
-    EnergySpectrum_NumberOfChannels = ET.SubElement(EnergySpectrum, "NumberOfChannels");
+    EnergySpectrum_NumberOfChannels = ET.SubElement(EnergySpectrum, "NumberOfChannels")
     EnergySpectrum_NumberOfChannels.text = "{:d}".format(len(histogram))
-    EnergySpectrum_ChannelPitch = ET.SubElement(EnergySpectrum, "ChannelPitch");
+    EnergySpectrum_ChannelPitch = ET.SubElement(EnergySpectrum, "ChannelPitch")
     EnergySpectrum_ChannelPitch.text = "1"
-    EnergySpectrum_SpectrumName = ET.SubElement(EnergySpectrum, "SpectrumName");
+    EnergySpectrum_SpectrumName = ET.SubElement(EnergySpectrum, "SpectrumName")
     EnergySpectrum_SpectrumName.text = "spectrum {} {:d}".format(end.strftime("%Y-%m-%dT%H:%M:%S+00:00"), elapsed)
-    EnergySpectrum_Comment = ET.SubElement(EnergySpectrum, "Comment");
+    EnergySpectrum_Comment = ET.SubElement(EnergySpectrum, "Comment")
     EnergySpectrum_Comment.text = comment
 
-    EnergySpectrum_EnergyCalibration = ET.SubElement(EnergySpectrum, "EnergyCalibration");
-    PolynomialOrder = ET.SubElement(EnergySpectrum_EnergyCalibration, "PolynomialOrder");
+    EnergySpectrum_EnergyCalibration = ET.SubElement(EnergySpectrum, "EnergyCalibration")
+    PolynomialOrder = ET.SubElement(EnergySpectrum_EnergyCalibration, "PolynomialOrder")
     PolynomialOrder.text = "{}".format(len(calibration) - 1)
-    Coefficients = ET.SubElement(EnergySpectrum_EnergyCalibration, "Coefficients");
+    Coefficients = ET.SubElement(EnergySpectrum_EnergyCalibration, "Coefficients")
     for val in calibration:
         Coefficient = ET.SubElement(Coefficients, "Coefficient")
         Coefficient.text = "{}".format(val)
@@ -465,7 +469,7 @@ def build_xml(histogram, calibration, elapsed, start, end, dev_serialno, comment
     ResultData_PulseCollection_Format.text = "Base64 encoded binary"
     ResultData_PulseCollection_Pulses = ET.SubElement(ResultData_PulseCollection, "Pulses")
 
-    return(xmlroot)
+    return xmlroot
 
 
 def stop():

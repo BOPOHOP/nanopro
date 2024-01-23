@@ -11,7 +11,7 @@ def getallports():
     nanoports = []
     for port in allports:
         if port.manufacturer == "FTDI" or re.search("^/dev/ttyUSB.*", port.device):
-            #print("getallports: {}".format(port.device))
+            # print("getallports: {}".format(port.device))
             nanoports.append(port)
     return nanoports
 
