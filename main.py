@@ -12,6 +12,9 @@ spec_dir = os.environ["HOME"] + "/nanopro/"
 #spec_file = spec_dir + "spectrum.csv"
 
 shproto.dispatcher.start_timestamp = datetime.now(timezone.utc)
+shproto.dispatcher.pulse_avg_mode == 22
+
+ris_saved = -999
 
 
 def helptxt():
@@ -137,17 +140,35 @@ if __name__ == '__main__':
             if command == "spec_sta":
                 with shproto.dispatcher.hide_next_responce_lock:
                     shproto.dispatcher.hide_next_responce = True
+                # shproto.dispatcher.pulse_avg_mode == 22
+                shproto.dispatcher.histogram2_start = datetime.now(timezone.utc)
+                shproto.dispatcher.histogram2 = [0] * 8192
                 shproto.dispatcher.process_03("-cal")
                 time.sleep(2)
                 shproto.dispatcher.process_03("-inf")
                 time.sleep(1)
                 shproto.dispatcher.process_03("-sta")
+                time.sleep(2)
+#                shproto.dispatcher.process_03("-sto")
+#                time.sleep(2)
+#                shproto.dispatcher.process_03("-ris 13")
+#                time.sleep(2)
+#                shproto.dispatcher.process_03("-mode 2")
+#                time.sleep(2)
+                if (shproto.dispatcher.detector_ris > 0):
+                    ris_saved = shproto.dispatcher.detector_ris
                 if shproto.dispatcher.spec_stopflag == 0:
                     print("Collecting thread allready running")
                     continue
                 spec.start()
                 continue
             if command == "spec_sto":
+#                shproto.dispatcher.process_03("-sto")
+#                time.sleep(2)
+#                shproto.dispatcher.process_03("-ris 7")
+#                time.sleep(2)
+#                shproto.dispatcher.process_03("-mode 0")
+#                time.sleep(2)
                 shproto.dispatcher.spec_stop()
                 spec = threading.Thread(target=shproto.dispatcher.process_01, args=(spec_file,))
                 continue

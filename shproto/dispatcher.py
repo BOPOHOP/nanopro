@@ -18,6 +18,13 @@ spec_stopflag_lock = threading.Lock()
 histogram = [0] * 8192
 histogram_lock = threading.Lock()
 
+histogram2 = [0] * 8192
+histogram2_start = datetime.now(timezone.utc)
+detector_ris  = -999
+detector_fall = -999
+detector_max  = -999
+detector_temp = -999.99
+
 command = ""
 command_lock = threading.Lock()
 
@@ -113,6 +120,21 @@ def start(sn=None):
                         shproto.dispatcher.inf_str = resp_decoded
                         shproto.dispatcher.inf_str = shproto.dispatcher.inf_str.rstrip()
                         # shproto.dispatcher.inf_str = re.sub(r'\[[^]]*\]', '...', shproto.dispatcher.inf_str, count = 2)
+                        # VERSION 13 RISE 7 FALL 8 NOISE 14 F 1000000.00 MAX 17118 HYST 1 MODE 0 STEP 1 t 156 POT 173 POT2 42 T1 28.5 T2 OFF T3 OFF Prise 40 Srise 8 OUT 0..0/1 Pfall 0 Sfall 0 TC ON TCpot ON Tco [-40 13128 -1 15530 2 15572 6 15920 10 16007 14 16404 18 16573 21 16783 25 16891 28 17107 32 17202 36 17348 40 17609 44 17755 48 17865 51 18001 56 18093 58 17422 0 0 0 0] TP 20000 PileUp [0.019 0.018 0.020 0.024 0.027 0.029 0.030 0.030 0.030 0.029 0.028 0.027 0.025 0.024 0.023 0.022 0.021 0.020 0.019 0.019 0.018 0.017 0.016 0.016 0.015 0.015 0.014 0.014 0.013 0.013 0.012 0.012 0.012 0.011 0.011 0.011 0.010 0.010 0.010 0.009 0.009 0.009 0.009 0.009 0.008 0.008 0.008 0.008 0.008 0.008 0.007 0.007 0.007 0.007 0.007 0.007 0.007 0.006 0.006 0.006 0.006 0.006 0.006 0.006 0.006 0.006 0.006 0.006 0.005 0.005 0.005 0.005 0.005 0.005 0.005 0.005 0.005 0.005 0.005 0.005 0.005 0.005 0.005 0.005 0.005 0.004 0.004 0.004 0.004 0.004 0.004 0.004 0.004 0.004 0.004 0.004 0.004 0.004 0.000] PileUpThr 1
+                        # if (m := re.search('.*RISE\s+(\d+)\s+.*FALL\s+(\d+)\s+.*NOISE\s+(\d+)\s+.*\sMAX\s+(\d+)\s+.*\s+T1\s+([^ ]+)\s+.*',
+                        if (m := re.search('.*RISE\s+(\d+)\s+.*FALL\s+(\d+)\s+.*NOISE\s+(\d+)\s+.*\sMAX\s+(\d+)\s+.*\sT1\s+(\S+).*',
+                                resp_decoded)):
+                            shproto.dispatcher.detector_ris  = int(m.group(1))
+                            shproto.dispatcher.detector_fall = int(m.group(2))
+                            shproto.dispatcher.detector_nos  = int(m.group(3))
+                            shproto.dispatcher.detector_max  = int(m.group(4))
+                            shproto.dispatcher.detector_temp = float(m.group(5))
+                            print("detector ris: {} fall: {} max: {} tempereature: {}".format(
+                                    shproto.dispatcher.detector_ris,
+                                    shproto.dispatcher.detector_fall,
+                                    shproto.dispatcher.detector_max,
+                                    shproto.dispatcher.detector_temp))
+                       
                 except UnicodeDecodeError:
                     print("Unknown non-text response.")
                 if (not shproto.dispatcher.hide_next_responce and not re.search('^mi.*index.*', resp_decoded)):
@@ -219,6 +241,9 @@ def process_01(filename):
     shproto.dispatcher.noise_sum_count   = 0
     noise_sum_count_prev = 0
     noise_sum_prev       = 0
+    shproto.dispatcher.histogram2_start = datetime.now(timezone.utc)
+    shproto.dispatcher.histogram2 = [0] * 8192
+    timer2 = 1
 
     print("Start writing spectrum to file: {}".format(filename))
     print("avg mode: {}".format(shproto.dispatcher.pulse_avg_mode))
@@ -226,7 +251,11 @@ def process_01(filename):
         shproto.dispatcher.spec_stopflag = 0
     while not (shproto.dispatcher.spec_stopflag or shproto.dispatcher.stopflag):
         timer += 1
+        timer2 += 1
         time.sleep(1)
+        if timer2 == 180:
+            timer2 = 0
+            shproto.dispatcher.process_03("-inf")
         if timer == 5:
             timer = 0
             with shproto.dispatcher.histogram_lock:
@@ -240,6 +269,54 @@ def process_01(filename):
                 else: 
                     spec_pulses_total_cps = float(spec_pulses_total) / float(shproto.dispatcher.total_time)
                 if shproto.dispatcher.csv_out:
+    
+                    with shproto.dispatcher.histogram_lock:
+                        # print("{} pulses in buf".format(len(shproto.dispatcher.pulses_buf)))
+                        pulses = shproto.dispatcher.pulses_buf
+                        shproto.dispatcher.pulses_debug_count += len(shproto.dispatcher.pulses_buf)
+                        shproto.dispatcher.pulses_buf = []
+
+                    shproto.dispatcher.pulse_avg_mode = 22
+                    if shproto.dispatcher.pulse_avg_mode == 22:
+                        if (shproto.dispatcher.detector_fall < 0) or (shproto.dispatcher.detector_max < 0) or (shproto.dispatcher.detector_nos < 0):
+                            continue
+                        pulse_ris  = 5
+                        pulse_preamb  = 4
+                        for pulse in pulses:
+                            if (len(pulse) < (
+                                        pulse_preamb + max(pulse_ris, 9) 
+                                        + shproto.dispatcher.detector_fall)): # 4(avg)+8(ris)+fall
+                                continue
+                            pulse_base = sum(pulse[0:pulse_preamb])/pulse_preamb
+                            pulse_max  = max(pulse)
+                            pulse_len  = pulse_ris + shproto.dispatcher.detector_fall
+                            pulse_sum  = sum(pulse[len(pulse) - pulse_len:])
+                            # pulse_bin  = int((pulse_sum - pulse_base*pulse_len) / shproto.dispatcher.detector_max * 8192)
+                            pulse_bin  = int((pulse_sum) / shproto.dispatcher.detector_max * 8192)
+                            if (pulse_max < shproto.dispatcher.detector_nos):
+                                print("pulse preambula too low: {}".format(pulse))
+                            pulse_preamb_len = len(pulse) - shproto.dispatcher.detector_fall - max(9, pulse_ris)
+                            pulse_preamb_max = max(pulse[0:pulse_preamb_len])
+                            if (pulse_preamb_max > shproto.dispatcher.detector_nos) or (pulse_preamb_max > pulse_max * 0.1):
+                                print("pulse preambula too HI: {}".format(pulse))
+                            if (pulse_bin >= 8192 or pulse_bin < 0):
+                                pulse_bin = 8191
+                            # print("pulse base: {} max: {} sum: {} bin: {} p: {}".format( pulse_base, pulse_max, pulse_sum, pulse_bin, pulse))
+                            shproto.dispatcher.histogram2[pulse_bin] += 1
+                        histogram = shproto.dispatcher.histogram2
+###
+                        spec_pulses_total = sum(histogram)
+                        spec_pulses_total_cps = 0
+                        spec_timestamp = shproto.dispatcher.histogram2_start
+                        shproto.dispatcher.total_time = int((datetime.now(timezone.utc)-spec_timestamp).total_seconds())
+                        if shproto.dispatcher.total_time > 0 or len(shproto.dispatcher.pulses_buf) > 0:
+                            if shproto.dispatcher.total_time == 0:
+                                spec_pulses_total_cps = 0
+                            else: 
+                                spec_pulses_total_cps = float(spec_pulses_total) / float(shproto.dispatcher.total_time)
+###
+                        
+
                     with open(filename, "w") as fd:
                         if shproto.dispatcher.interspec_csv:
                             fd.writelines("calibcoeff : a={} b={} c={} d={}\n".format(
@@ -267,12 +344,6 @@ def process_01(filename):
                             print("histogram len too long {}".format(len(histogram)))
                         for i in range(0, len(histogram)):
                             fd.writelines("{}, {}\n".format(i + 1, histogram[i]))
-    
-                    with shproto.dispatcher.histogram_lock:
-                        # print("{} pulses in buf".format(len(shproto.dispatcher.pulses_buf)))
-                        pulses = shproto.dispatcher.pulses_buf
-                        shproto.dispatcher.pulses_debug_count += len(shproto.dispatcher.pulses_buf)
-                        shproto.dispatcher.pulses_buf = []
 
                     if shproto.dispatcher.pulse_avg_mode == 1:
                         if shproto.dispatcher.pulse_avg_wanted > pulse_avg_count:
