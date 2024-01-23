@@ -259,7 +259,7 @@ def process_01(filename):
                                 fd.writelines("remark, inf: {}\n".format(shproto.dispatcher.inf_str))
                             fd.writelines("livetime, {}\n".format(shproto.dispatcher.total_time))
                             fd.writelines("realtime, {}\n".format(shproto.dispatcher.total_time))
-                            fd.writelines("detectorname,nano15-8k-{}\nSerialNumber,nano15-8k-{}\n".format(
+                            fd.writelines("detectorname,n15-8k-pstd-{}\nSerialNumber,n15-8k-pstd-{}\n".format(
                                 shproto.dispatcher.serial_number,shproto.dispatcher.serial_number))
                             fd.writelines("starttime, {}\n".format(spec_timestamp.strftime("%Y-%m-%dT%H:%M:%S+00:00")))
                             fd.writelines("ch,data\n")
@@ -277,19 +277,20 @@ def process_01(filename):
                     if shproto.dispatcher.pulse_avg_mode == 1:
                         if shproto.dispatcher.pulse_avg_wanted > pulse_avg_count:
                             for pulse in pulses:
-                                v_max = 0
+                                v_max = max(pulse)
+                                if (v_max < shproto.dispatcher.pulse_avg_min or v_max > shproto.dispatcher.pulse_avg_max):
+                                    continue
                                 for i, v in enumerate(pulse):
-                                    if v_max < v:
-                                        v_max = v
-                                    else:
-                                        if i > 0:
-                                            i -= 1
+                                    if v == v_max:
                                         break
                                 center_idx = i
+                                if (center_idx + shproto.dispatcher.pileup_skip + 100 >= len(pulse)) or (center_idx == 0): # overlaping
+                                    continue
+                                # print("pulse max {} at {} {}".format(v_max, center_idx, pulse))
                                 # print("pulse max {} at {}".format(v_max, center_idx))
-                                if (v_max >= shproto.dispatcher.pulse_avg_min and v_max <= shproto.dispatcher.pulse_avg_max
-                                            and  max(pulse[center_idx + shproto.dispatcher.pileup_skip:]) < v_max * 0.1):
+                                if (max(pulse[center_idx + shproto.dispatcher.pileup_skip:]) < v_max * 0.1): # no big pulses at tail
                                     # print("pulse is good")
+                                    # print("pulse max {} at {} {}".format(v_max, center_idx, pulse))
                                     pulse_avg_count += 1
                                     # print("from {} to {}".format(max(0, center_idx-pulse_avg_center), min(pulse_avg_size-pulse_avg_center, len(pulse))))
                                     range_start = max(0,center_idx - pulse_avg_center) + pulse_avg_center - center_idx
@@ -299,6 +300,7 @@ def process_01(filename):
                                         pulse_avg[i] += pulse[i - pulse_avg_center + center_idx]
                             print("pulse averaging collected in range: {} pulses total: {}".format(
                                     pulse_avg_count, shproto.dispatcher.pulses_debug_count))
+                        # print("ranges0: {} - {} : {} {}".format(range_start,range_end, pulse_avg_center, center_idx))
                         if shproto.dispatcher.pulse_avg_wanted <= pulse_avg_count:
                             if not pulse_avg_printed and pulse_avg_count > 0:
                                 pulse_avg_printed = 1
@@ -310,7 +312,7 @@ def process_01(filename):
                                 for idx_stop in range(pulse_avg_size-1, pulse_avg_center+1, -1):
                                     if pulse_avg[idx_stop] != 0:
                                         break
-                                print("data buf from {} to {}".format(idx_start, idx_stop))
+                                # print("data buf from {} to {}".format(idx_start, idx_stop))
                                 print("{} pulses collected in range from {} to {}".format(pulse_avg_count,
                                         shproto.dispatcher.pulse_avg_min, shproto.dispatcher.pulse_avg_max))
                                 print("pulse rise: {}".format(','.join("{:.3f}".format(p) 
@@ -325,6 +327,7 @@ def process_01(filename):
                                                 .format(p - shproto.dispatcher.noise_level * pulse_avg_count / avg_max) 
                                         for p in pulse_avg_normal[pulse_avg_center + shproto.dispatcher.pileup_skip + 1
                                                 :min(100 + pulse_avg_center + shproto.dispatcher.pileup_skip, pulse_avg_size)])))
+                                # print("ranges: {} - {} : {} {}".format(range_start,range_end, pulse_avg_center, center_idx))
                                 print("shape_f: {}".format(','.join("{:.3f}".format(p) 
                                         for p in pulse_avg_normal[range_start:range_end])))
                                 print("shape_i: {}".format(','.join("{:d}".format(int(p/pulse_avg_count)) 
