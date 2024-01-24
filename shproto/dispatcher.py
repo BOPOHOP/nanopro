@@ -18,6 +18,10 @@ spec_stopflag_lock = threading.Lock()
 histogram = [0] * 8192
 histogram_lock = threading.Lock()
 
+detector_ris  = -999
+detector_fall = -999
+detector_max  = -999
+detector_temp = -999.99
 command = ""
 command_lock = threading.Lock()
 
@@ -113,6 +117,20 @@ def start(sn=None):
                         shproto.dispatcher.inf_str = resp_decoded
                         shproto.dispatcher.inf_str = shproto.dispatcher.inf_str.rstrip()
                         # shproto.dispatcher.inf_str = re.sub(r'\[[^]]*\]', '...', shproto.dispatcher.inf_str, count = 2)
+                        # VERSION 13 RISE 7 FALL 8 NOISE 14 F 1000000.00 MAX 17118 HYST 1 MODE 0 STEP 1 t 156 POT 173 POT2 42 T1 28.5 T2 OFF T3 OFF Prise 40 Srise 8 OUT 0..0/1 Pfall 0 Sfall 0 TC ON TCpot ON Tco [-40 13128 -1 15530 2 15572 6 15920 10 16007 14 16404 18 16573 21 16783 25 16891 28 17107 32 17202 36 17348 40 17609 44 17755 48 17865 51 18001 56 18093 58 17422 0 0 0 0] TP 20000 PileUp [0.019 0.018 0.020 0.024 0.027 0.029 0.030 0.030 0.030 0.029 0.028 0.027 0.025 0.024 0.023 0.022 0.021 0.020 0.019 0.019 0.018 0.017 0.016 0.016 0.015 0.015 0.014 0.014 0.013 0.013 0.012 0.012 0.012 0.011 0.011 0.011 0.010 0.010 0.010 0.009 0.009 0.009 0.009 0.009 0.008 0.008 0.008 0.008 0.008 0.008 0.007 0.007 0.007 0.007 0.007 0.007 0.007 0.006 0.006 0.006 0.006 0.006 0.006 0.006 0.006 0.006 0.006 0.006 0.005 0.005 0.005 0.005 0.005 0.005 0.005 0.005 0.005 0.005 0.005 0.005 0.005 0.005 0.005 0.005 0.005 0.004 0.004 0.004 0.004 0.004 0.004 0.004 0.004 0.004 0.004 0.004 0.004 0.004 0.000] PileUpThr 1
+                        # if (m := re.search('.*RISE\s+(\d+)\s+.*FALL\s+(\d+)\s+.*NOISE\s+(\d+)\s+.*\sMAX\s+(\d+)\s+.*\s+T1\s+([^ ]+)\s+.*',
+                        if (m := re.search('.*RISE\s+(\d+)\s+.*FALL\s+(\d+)\s+.*NOISE\s+(\d+)\s+.*\sMAX\s+(\d+)\s+.*\sT1\s+(\S+).*',
+                                resp_decoded)):
+                            shproto.dispatcher.detector_ris  = int(m.group(1))
+                            shproto.dispatcher.detector_fall = int(m.group(2))
+                            shproto.dispatcher.detector_nos  = int(m.group(3))
+                            shproto.dispatcher.detector_max  = int(m.group(4))
+                            shproto.dispatcher.detector_temp = float(m.group(5))
+                            print("detector ris: {} fall: {} max: {} tempereature: {}".format(
+                                    shproto.dispatcher.detector_ris,
+                                    shproto.dispatcher.detector_fall,
+                                    shproto.dispatcher.detector_max,
+                                    shproto.dispatcher.detector_temp))
                 except UnicodeDecodeError:
                     print("Unknown non-text response.")
                 if (not shproto.dispatcher.hide_next_responce and not re.search('^mi.*index.*', resp_decoded)):
@@ -264,8 +282,17 @@ def process_01(filename):
                                 fd.writelines("remark, inf: {}\n".format(shproto.dispatcher.inf_str))
                             fd.writelines("livetime, {}\n".format(shproto.dispatcher.total_time))
                             fd.writelines("realtime, {}\n".format(shproto.dispatcher.total_time))
-                            fd.writelines("detectorname,n15-r7-8k-pstd-{}\nSerialNumber,n15-r7-8k-pstd-{}\n".format(
-                                shproto.dispatcher.serial_number,shproto.dispatcher.serial_number))
+                            detectorname_str = 'n15'
+                            if (shproto.dispatcher.detector_ris > 0 and shproto.dispatcher.detector_fall > 0
+                                    and shproto.dispatcher.detector_nos > 0):
+                                detectorname_str = "n15-{}-n{}-r{}-f{}".format(
+                                        shproto.dispatcher.serial_number,
+                                        shproto.dispatcher.detector_nos,
+                                        shproto.dispatcher.detector_ris,
+                                        shproto.dispatcher.detector_fall
+                                        )
+                            fd.writelines("detectorname,{}\nSerialNumber,{}\n".format(
+                                    detectorname_str, detectorname_str))
                             fd.writelines("starttime, {}\n".format(spec_timestamp.strftime("%Y-%m-%dT%H:%M:%S+00:00")))
                             fd.writelines("ch,data\n")
                         if len(histogram) > 8192:
