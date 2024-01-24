@@ -9,7 +9,7 @@ import os
 from datetime import datetime, timezone, timedelta
 
 spec_dir = os.environ["HOME"] + "/nanopro/"
-#spec_file = spec_dir + "spectrum.csv"
+# spec_file = spec_dir + "spectrum.csv"
 
 shproto.dispatcher.start_timestamp = datetime.now(timezone.utc)
 shproto.dispatcher.pulse_avg_mode == 22
@@ -70,14 +70,14 @@ if __name__ == '__main__':
     parser.add_argument('-s', '--skip_help', action='store_true')
 
     args = parser.parse_args()
-    if not args.device == '':
+    if args.device != '':
         shproto.port.getportbyserialnumber(args.device)
     if re.search("^[/\.].*", args.file):
         spec_file = args.file
     else:
         spec_file = spec_dir + args.file
     if not re.search("\.csv$", spec_file, flags=re.IGNORECASE):
-        spec_file = spec_file + ".csv"
+        spec_file += ".csv"
     if args.csv:
         shproto.dispatcher.csv_out = 1
     else:
@@ -182,7 +182,8 @@ if __name__ == '__main__':
                 shproto.alert.stop()
                 alert = threading.Thread(target=shproto.alert.alertmode, args=(spec_dir, 1.5,))
                 continue
-            if m := re.search("^(spd|speed)\s+(\S+)", command):
+            m = re.search("^(spd|speed)\s+(\S+)", command)
+            if m is not None and len(m.groups()) == 2:
                 shproto.port.port_speed = m.group(2)
                 print("port speed set to {}... reconnect".format(shproto.port.port_speed))
                 shproto.dispatcher.stop()
@@ -255,6 +256,7 @@ if __name__ == '__main__':
             if command in shproto.port.getallportssn() or re.match("^/", command):
                 print("Connect to device: {}".format(shproto.port.getportbyserialnumber(command)))
                 shproto.dispatcher.stop()
+                time.sleep(1)
                 with shproto.dispatcher.stopflag_lock:
                     shproto.dispatcher.stopflag = 0
                 dispatcher = threading.Thread(target=shproto.dispatcher.start)
