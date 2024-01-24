@@ -264,7 +264,7 @@ def process_01(filename):
                                 fd.writelines("remark, inf: {}\n".format(shproto.dispatcher.inf_str))
                             fd.writelines("livetime, {}\n".format(shproto.dispatcher.total_time))
                             fd.writelines("realtime, {}\n".format(shproto.dispatcher.total_time))
-                            fd.writelines("detectorname,n15-8k-pstd-{}\nSerialNumber,n15-8k-pstd-{}\n".format(
+                            fd.writelines("detectorname,n15-r7-8k-pstd-{}\nSerialNumber,n15-r7-8k-pstd-{}\n".format(
                                 shproto.dispatcher.serial_number,shproto.dispatcher.serial_number))
                             fd.writelines("starttime, {}\n".format(spec_timestamp.strftime("%Y-%m-%dT%H:%M:%S+00:00")))
                             fd.writelines("ch,data\n")
