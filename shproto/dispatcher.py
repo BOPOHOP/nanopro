@@ -429,15 +429,16 @@ def process_01(filename):
                     with open(filename_xml, "w") as fd:
                         fd.write(xml_str.decode(encoding="utf-8"))
 
-            print(
-                "elapsed: {}/{:.0f} cps: {}/{:.2f} total_pkts: {} drop_pkts: {} "
-                "lostImp: {} cpu: {} dbg_pulses: {}".format(
-                    shproto.dispatcher.total_time,
-                    (datetime.now(timezone.utc) - shproto.dispatcher.start_timestamp).total_seconds(),
-                    shproto.dispatcher.cps, spec_pulses_total_cps,
-                    shproto.dispatcher.total_pkts, shproto.dispatcher.dropped,
-                    shproto.dispatcher.lost_impulses, shproto.dispatcher.cpu_load,
-                    shproto.dispatcher.pulses_debug_count))
+            if shproto.dispatcher.verbose:
+                print(
+                    "elapsed: {}/{:.0f} cps: {}/{:.2f} total_pkts: {} drop_pkts: {} "
+                    "lostImp: {} cpu: {} dbg_pulses: {}".format(
+                        shproto.dispatcher.total_time,
+                        (datetime.now(timezone.utc) - shproto.dispatcher.start_timestamp).total_seconds(),
+                        shproto.dispatcher.cps, spec_pulses_total_cps,
+                        shproto.dispatcher.total_pkts, shproto.dispatcher.dropped,
+                        shproto.dispatcher.lost_impulses, shproto.dispatcher.cpu_load,
+                        shproto.dispatcher.pulses_debug_count))
     if shproto.dispatcher.pulse_file_opened == 1:
         fd_pulses.close()
         shproto.dispatcher.pulse_file_opened = 0
