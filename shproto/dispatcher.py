@@ -126,9 +126,10 @@ def start(sn=None):
                             shproto.dispatcher.detector_nos  = int(m.group(3))
                             shproto.dispatcher.detector_max  = int(m.group(4))
                             shproto.dispatcher.detector_temp = float(m.group(5))
-                            print("detector ris: {} fall: {} max: {} tempereature: {}".format(
+                            print("detector ris: {} fall: {} nos: {} max: {} tempereature: {}".format(
                                     shproto.dispatcher.detector_ris,
                                     shproto.dispatcher.detector_fall,
+                                    shproto.dispatcher.detector_nos,
                                     shproto.dispatcher.detector_max,
                                     shproto.dispatcher.detector_temp))
                 except UnicodeDecodeError:
@@ -231,6 +232,7 @@ def process_01(filename):
     filename_xml = re.sub(r'\.csv$', '', filename, flags=re.IGNORECASE)
     filename_xml += ".xml"
     timer = 0
+    timer2 = 0
 
     pulse_avg_center  = 100
     pulse_avg_size    = 301
@@ -249,7 +251,13 @@ def process_01(filename):
         shproto.dispatcher.spec_stopflag = 0
     while not (shproto.dispatcher.spec_stopflag or shproto.dispatcher.stopflag):
         timer += 1
+        timer2 += 1
         time.sleep(1)
+        if timer2 == 180:
+            with shproto.dispatcher.hide_next_responce_lock:
+                shproto.dispatcher.hide_next_responce = True
+            shproto.dispatcher.process_03("-inf")
+            timer2 = 0
         if timer == 5:
             timer = 0
             with shproto.dispatcher.histogram_lock:
