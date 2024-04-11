@@ -9,7 +9,7 @@ import os
 from datetime import datetime, timezone, timedelta
 
 spec_dir = os.environ["HOME"] + "/nanopro/"
-#spec_file = spec_dir + "spectrum.csv"
+# spec_file = spec_dir + "spectrum.csv"
 
 shproto.dispatcher.start_timestamp = datetime.now(timezone.utc)
 
@@ -52,7 +52,7 @@ def helptxt():
 
 
 if __name__ == '__main__':
-    helptxt()
+    # helptxt()
 
     parser = argparse.ArgumentParser(
         prog='ProgramName',
@@ -65,6 +65,7 @@ if __name__ == '__main__':
     parser.add_argument('-x', '--xml', action='store_true')
     parser.add_argument('-a', '--autostart', action='store_true')
     parser.add_argument('-v', '--verbose', action='store_true')
+    parser.add_argument('-s', '--skip_help', action='store_true')
 
     args = parser.parse_args()
     if not args.device == '':
@@ -97,6 +98,8 @@ if __name__ == '__main__':
     else:
         shproto.dispatcher.verbose = 1
 
+    if not args.skip_help:
+        helptxt()
 
     print("Found devices: {}".format(shproto.port.getallportsastext()))
     dispatcher = threading.Thread(target=shproto.dispatcher.start)
@@ -163,6 +166,7 @@ if __name__ == '__main__':
                 shproto.port.port_speed = m.group(2)
                 print("port speed set to {}... reconnect".format(shproto.port.port_speed))
                 shproto.dispatcher.stop()
+                time.sleep(1)
                 with shproto.dispatcher.stopflag_lock:
                     shproto.dispatcher.stopflag = 0
                 dispatcher = threading.Thread(target=shproto.dispatcher.start)
@@ -172,6 +176,7 @@ if __name__ == '__main__':
             if command in shproto.port.getallportssn() or re.match("^/", command):
                 print("Connect to device: {}".format(shproto.port.getportbyserialnumber(command)))
                 shproto.dispatcher.stop()
+                time.sleep(1)
                 with shproto.dispatcher.stopflag_lock:
                     shproto.dispatcher.stopflag = 0
                 dispatcher = threading.Thread(target=shproto.dispatcher.start)
