@@ -231,7 +231,7 @@ def process_01(filename):
     filename_pulses += "_pulses.dat"
     filename_xml = re.sub(r'\.csv$', '', filename, flags=re.IGNORECASE)
     filename_xml += ".xml"
-    timer = 0
+    timer = 100000
     timer2 = 0
 
     pulse_avg_center  = 100
@@ -258,7 +258,9 @@ def process_01(filename):
                 shproto.dispatcher.hide_next_responce = True
             shproto.dispatcher.process_03("-inf")
             timer2 = 0
-        if timer == 5:
+        if ((shproto.dispatcher.total_time < 300 and timer >= 5)
+                or (shproto.dispatcher.total_time < 3600 and timer >= 30)
+                or timer >= 60) :
             timer = 0
             with shproto.dispatcher.histogram_lock:
                 histogram = shproto.dispatcher.histogram
