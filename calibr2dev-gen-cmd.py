@@ -16,11 +16,13 @@ import binascii
 #coeff =   [-5.47761, 0.373181, 6.15434E-06, -4.64364E-10, 0]   # nos14 rise5 fall8 prise40 srise8 pfall0 sfall0 StdTHR+
 #coeff =   [-5.5677,  0.372833, 6.2539E-06,  -4.71869E-10, 0]   # nos14 rise5 fall8 prise40 srise8 pfall0 sfall0 StdTHR+
 
-coeff =   [-6.62242, 0.372515, 6.62352E-06, -4.8421E-10, 0]   # 2M nos14 rise7 fall8 prise40 srise8 pfall0 sfall0 StdTHR
+# coeff =   [-6.62242, 0.372515, 6.62352E-06, -4.8421E-10, 0]   # 2M nos14 rise7 fall8 prise40 srise8 pfall0 sfall0 StdTHR
 
 #coeff =   [-8.29109, 0.369356, 6.67704E-06, -5.31864E-10, 0]   # nos14 rise5 fall8 prise40 srise8 pfall0 sfall0 StdTHR+ Fix-0.99
 
 #coeff =   [-5.565360, 3.71104e-01, 5.86174e-06, -4.26725e-10, 0]   # nos14 rise5 fall8 prise40 srise8 pfall0 sfall0 MyTHR5
+
+coeff =   [-9.95037, 0.377817, 4.70725e-06, -3.1341e-10, 0.0 ]   # nos14 rise5 fall8 prise40 srise8 pfall10 sfall15 MyTHR5
 
 echo = 'echo '
 
