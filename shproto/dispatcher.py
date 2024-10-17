@@ -22,6 +22,9 @@ detector_ris  = -999
 detector_fall = -999
 detector_max  = -999
 detector_temp = -999.99
+detector_pthr = -999
+detector_V = -999
+detector_U = -999
 command = ""
 command_lock = threading.Lock()
 
@@ -119,6 +122,12 @@ def start(sn=None):
                         # shproto.dispatcher.inf_str = re.sub(r'\[[^]]*\]', '...', shproto.dispatcher.inf_str, count = 2)
                         # VERSION 13 RISE 7 FALL 8 NOISE 14 F 1000000.00 MAX 17118 HYST 1 MODE 0 STEP 1 t 156 POT 173 POT2 42 T1 28.5 T2 OFF T3 OFF Prise 40 Srise 8 OUT 0..0/1 Pfall 0 Sfall 0 TC ON TCpot ON Tco [-40 13128 -1 15530 2 15572 6 15920 10 16007 14 16404 18 16573 21 16783 25 16891 28 17107 32 17202 36 17348 40 17609 44 17755 48 17865 51 18001 56 18093 58 17422 0 0 0 0] TP 20000 PileUp [0.019 0.018 0.020 0.024 0.027 0.029 0.030 0.030 0.030 0.029 0.028 0.027 0.025 0.024 0.023 0.022 0.021 0.020 0.019 0.019 0.018 0.017 0.016 0.016 0.015 0.015 0.014 0.014 0.013 0.013 0.012 0.012 0.012 0.011 0.011 0.011 0.010 0.010 0.010 0.009 0.009 0.009 0.009 0.009 0.008 0.008 0.008 0.008 0.008 0.008 0.007 0.007 0.007 0.007 0.007 0.007 0.007 0.006 0.006 0.006 0.006 0.006 0.006 0.006 0.006 0.006 0.006 0.006 0.005 0.005 0.005 0.005 0.005 0.005 0.005 0.005 0.005 0.005 0.005 0.005 0.005 0.005 0.005 0.005 0.005 0.004 0.004 0.004 0.004 0.004 0.004 0.004 0.004 0.004 0.004 0.004 0.004 0.004 0.000] PileUpThr 1
                         # if (m := re.search('.*RISE\s+(\d+)\s+.*FALL\s+(\d+)\s+.*NOISE\s+(\d+)\s+.*\sMAX\s+(\d+)\s+.*\s+T1\s+([^ ]+)\s+.*',
+                        if (m := re.search('\sPileUpThr\s+(\d+)', resp_decoded)):
+                            shproto.dispatcher.detector_pthr = int(m.group(1))
+                        if (m := re.search('\sPOT\s+(\d+)', resp_decoded)):
+                            shproto.dispatcher.detector_U = int(m.group(1))
+                        if (m := re.search('\sPOT2\s+(\d+)', resp_decoded)):
+                            shproto.dispatcher.detector_V = int(m.group(1))
                         if (m := re.search('.*RISE\s+(\d+)\s+.*FALL\s+(\d+)\s+.*NOISE\s+(\d+)\s+.*\sMAX\s+(\d+)\s+.*\sT\d\s+(\d+(\.\d+)*).*',
                                 resp_decoded)):
                             shproto.dispatcher.detector_ris  = int(m.group(1))
@@ -126,12 +135,17 @@ def start(sn=None):
                             shproto.dispatcher.detector_nos  = int(m.group(3))
                             shproto.dispatcher.detector_max  = int(m.group(4))
                             shproto.dispatcher.detector_temp = float(m.group(5))
-                            print("detector ris: {} fall: {} nos: {} max: {} tempereature: {}".format(
+                            shproto.dispatcher.noise_threshold = shproto.dispatcher.detector_nos+1;
+                            print("detector -ris: {} -fall: {} nos: {} -max: {} -U: {} -V: {} -pthr: {} tempereature: {}".format(
                                     shproto.dispatcher.detector_ris,
                                     shproto.dispatcher.detector_fall,
                                     shproto.dispatcher.detector_nos,
                                     shproto.dispatcher.detector_max,
-                                    shproto.dispatcher.detector_temp))
+                                    shproto.dispatcher.detector_U,
+                                    shproto.dispatcher.detector_V,
+                                    shproto.dispatcher.detector_pthr,
+                                    shproto.dispatcher.detector_temp
+                                    ))
                 except UnicodeDecodeError:
                     print("Unknown non-text response.")
                 if (not shproto.dispatcher.hide_next_responce and not re.search('^mi.*index.*', resp_decoded)):
@@ -293,15 +307,19 @@ def process_01(filename):
                             fd.writelines("livetime, {}\n".format(shproto.dispatcher.total_time))
                             fd.writelines("realtime, {}\n".format(shproto.dispatcher.total_time))
                             detectorname_str = 'n15'
+                            if (shproto.dispatcher.serial_number == "00000210"):
+                                detectorname_str = "gs8000"
                             if (shproto.dispatcher.detector_ris > 0 and shproto.dispatcher.detector_fall > 0
                                     and shproto.dispatcher.detector_nos > 0):
-                                detectorname_str = "n15-{}-n{}-r{}-f{}".format(
+                                detectorname_str = "{}-{}-n{}-r{}-f{}-U{}".format(
+                                        detectorname_str,
                                         shproto.dispatcher.serial_number,
                                         shproto.dispatcher.detector_nos,
                                         shproto.dispatcher.detector_ris,
-                                        shproto.dispatcher.detector_fall
+                                        shproto.dispatcher.detector_fall,
+                                        shproto.dispatcher.detector_U
                                         )
-                            fd.writelines("detectorname,{}\nSerialNumber,{}\n".format(
+                            fd.writelines("detectorname, {}\nSerialNumber, {}\n".format(
                                     detectorname_str, detectorname_str))
                             fd.writelines("starttime, {}\n".format(spec_timestamp.strftime("%Y-%m-%dT%H:%M:%S+00:00")))
                             fd.writelines("ch,data\n")
@@ -319,7 +337,10 @@ def process_01(filename):
                     if shproto.dispatcher.pulse_avg_mode == 1:
                         if shproto.dispatcher.pulse_avg_wanted > pulse_avg_count:
                             for pulse in pulses:
+                                if len(pulse) > 500: # rest from osc mode
+                                    continue
                                 v_max = max(pulse)
+                                #print("v_max: {}".format(v_max))
                                 if (v_max < shproto.dispatcher.pulse_avg_min or v_max > shproto.dispatcher.pulse_avg_max):
                                     continue
                                 for i, v in enumerate(pulse):
@@ -328,6 +349,10 @@ def process_01(filename):
                                 center_idx = i
                                 if (center_idx + shproto.dispatcher.pileup_skip + 100 >= len(pulse)) or (center_idx == 0): # overlaping
                                     continue
+                                if (0):
+                                    print("debug pulse v_max: {} center_idx: {} shproto.dispatcher.pileup_skip: {} len: {} res1: {}".format(
+                                        v_max, center_idx, shproto.dispatcher.pileup_skip, len(pulse),
+                                        center_idx + shproto.dispatcher.pileup_skip + 100));
                                 # print("pulse max {} at {} {}".format(v_max, center_idx, pulse))
                                 # print("pulse max {} at {}".format(v_max, center_idx))
                                 if (max(pulse[center_idx + shproto.dispatcher.pileup_skip:]) < v_max * 0.1): # no big pulses at tail
@@ -378,7 +403,11 @@ def process_01(filename):
                             time.sleep(2)
                             shproto.dispatcher.process_03("-fall {:d}".format(shproto.dispatcher.pileup_skip))
                             time.sleep(2)
-                            shproto.dispatcher.process_03("-pthr 1")
+                            #shproto.dispatcher.process_03("-pthr 1")
+                            if (shproto.dispatcher.detector_pthr > 0):
+                                shproto.dispatcher.process_03("-pthr {}".format(shproto.dispatcher.detector_pthr))
+                            else:
+                                shproto.dispatcher.process_03("-pthr 8192")
                             time.sleep(2)
                             shproto.dispatcher.process_03("-mode 0")
                             time.sleep(2)

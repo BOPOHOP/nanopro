@@ -8,7 +8,7 @@ import argparse
 import os
 from datetime import datetime, timezone, timedelta
 
-spec_dir = os.environ["HOME"] + "/nanopro/"
+spec_dir = os.environ["HOME"] + "/nanopro/p1/"
 # spec_file = spec_dir + "spectrum.csv"
 
 shproto.dispatcher.start_timestamp = datetime.now(timezone.utc)
@@ -186,9 +186,13 @@ if __name__ == '__main__':
                 shproto.dispatcher.pulse_avg_max    = int(m.group(5))
                 shproto.dispatcher.csv_out    = 1
                 # noise_calc_time               = 180
-                noise_calc_time               = 15
+                #noise_calc_time               = 15
+                noise_calc_time               = 10
                 shproto.dispatcher.verbose_prev = shproto.dispatcher.verbose
                 shproto.dispatcher.verbose    = 0
+                if (shproto.dispatcher.pileup_skip <= 0 and shproto.dispatcher.detector_fall > 0):
+                    shproto.dispatcher.pileup_skip = shproto.dispatcher.detector_fall
+                    print("got -fall {}".format(shproto.dispatcher.detector_fall));
 
                 print("preparing for noise level calculation ({}sec)".format(noise_calc_time))
                 shproto.dispatcher.process_03("-sto")
