@@ -195,6 +195,8 @@ if __name__ == '__main__':
                     print("got -fall {}".format(shproto.dispatcher.detector_fall));
 
                 print("preparing for noise level calculation ({}sec)".format(noise_calc_time))
+                shproto.dispatcher.process_03("-rst")
+                time.sleep(1)
                 shproto.dispatcher.process_03("-sto")
                 time.sleep(2)
                 shproto.dispatcher.process_03("-pthr 8192")
@@ -224,15 +226,18 @@ if __name__ == '__main__':
                         format(shproto.dispatcher.pulse_avg_wanted, shproto.dispatcher.pulse_avg_min,
                                 shproto.dispatcher.pulse_avg_max, shproto.dispatcher.pileup_skip))
 
+                shproto.dispatcher.process_03("-sto")
+                time.sleep(2)
                 shproto.dispatcher.process_03("-pthr 8192")
                 time.sleep(2)
                 shproto.dispatcher.process_03("-dbg 1 9000")
                 time.sleep(2)
-                shproto.dispatcher.process_03("-fall {:d}".format(110 + shproto.dispatcher.pileup_skip))
+                shproto.dispatcher.process_03("-fall {:d}".format(190 + shproto.dispatcher.pileup_skip))
                 time.sleep(2)
                 shproto.dispatcher.process_03("-mode2")
                 time.sleep(2)
                 shproto.dispatcher.process_03("-sta")
+                time.sleep(2)
                 if shproto.dispatcher.spec_stopflag == 1:
                     spec.start()
                 continue
