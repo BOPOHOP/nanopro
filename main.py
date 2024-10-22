@@ -69,11 +69,11 @@ if __name__ == '__main__':
     args = parser.parse_args()
     if args.device != '':
         shproto.port.getportbyserialnumber(args.device)
-    if re.search("^[/\.].*", args.file):
+    if re.search("^[/\\.].*", args.file):
         spec_file = args.file
     else:
         spec_file = spec_dir + args.file
-    if not re.search("\.csv$", spec_file, flags=re.IGNORECASE):
+    if not re.search("\\.csv$", spec_file, flags=re.IGNORECASE):
         spec_file += ".csv"
     if args.csv:
         shproto.dispatcher.csv_out = 1
@@ -161,7 +161,7 @@ if __name__ == '__main__':
                 shproto.alert.stop()
                 alert = threading.Thread(target=shproto.alert.alertmode, args=(spec_dir, 1.5,))
                 continue
-            m = re.search("^(spd|speed)\s+(\S+)", command)
+            m = re.search("^(spd|speed)\\s+(\\S+)", command)
             if m is not None and len(m.groups()) == 2:
                 shproto.port.port_speed = m.group(2)
                 print("port speed set to {}... reconnect".format(shproto.port.port_speed))
@@ -174,7 +174,7 @@ if __name__ == '__main__':
                 time.sleep(1)
                 continue
             # pulse_average pulses fall min_dac max_dac
-            if m := re.search("^(pulse_average)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)", command):
+            if m := re.search("^(pulse_average)\\s+(\\d+)\\s+(\\d+)\\s+(\\d+)\\s+(\\d+)", command):
                 shproto.dispatcher.spec_stop()
                 time.sleep(2)
                 spec = threading.Thread(target=shproto.dispatcher.process_01, args=(spec_file,))
@@ -196,7 +196,7 @@ if __name__ == '__main__':
 
                 print("preparing for noise level calculation ({}sec)".format(noise_calc_time))
                 shproto.dispatcher.process_03("-rst")
-                time.sleep(1)
+                time.sleep(2)
                 shproto.dispatcher.process_03("-sto")
                 time.sleep(2)
                 shproto.dispatcher.process_03("-pthr 8192")
@@ -219,20 +219,18 @@ if __name__ == '__main__':
                 shproto.dispatcher.spec_stop()
                 time.sleep(2)
                 spec = threading.Thread(target=shproto.dispatcher.process_01, args=(spec_file,))
-                time.sleep(1)
+                time.sleep(2)
 
                 shproto.dispatcher.pulse_avg_mode    = 1
                 print("starting pulse ageraging for {} pulses in range {} - {}, assuming -fall={}".
                         format(shproto.dispatcher.pulse_avg_wanted, shproto.dispatcher.pulse_avg_min,
                                 shproto.dispatcher.pulse_avg_max, shproto.dispatcher.pileup_skip))
 
-                shproto.dispatcher.process_03("-sto")
-                time.sleep(2)
                 shproto.dispatcher.process_03("-pthr 8192")
                 time.sleep(2)
                 shproto.dispatcher.process_03("-dbg 1 9000")
                 time.sleep(2)
-                shproto.dispatcher.process_03("-fall {:d}".format(190 + shproto.dispatcher.pileup_skip))
+                shproto.dispatcher.process_03("-fall {:d}".format(110 + shproto.dispatcher.pileup_skip))
                 time.sleep(2)
                 shproto.dispatcher.process_03("-mode2")
                 time.sleep(2)

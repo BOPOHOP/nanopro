@@ -119,16 +119,16 @@ def start(sn=None):
                     if re.search('^VERSION', resp_decoded):
                         shproto.dispatcher.inf_str = resp_decoded
                         shproto.dispatcher.inf_str = shproto.dispatcher.inf_str.rstrip()
-                        # shproto.dispatcher.inf_str = re.sub(r'\[[^]]*\]', '...', shproto.dispatcher.inf_str, count = 2)
+                        # shproto.dispatcher.inf_str = re.sub(r'\\[[^]]*\\]', '...', shproto.dispatcher.inf_str, count = 2)
                         # VERSION 13 RISE 7 FALL 8 NOISE 14 F 1000000.00 MAX 17118 HYST 1 MODE 0 STEP 1 t 156 POT 173 POT2 42 T1 28.5 T2 OFF T3 OFF Prise 40 Srise 8 OUT 0..0/1 Pfall 0 Sfall 0 TC ON TCpot ON Tco [-40 13128 -1 15530 2 15572 6 15920 10 16007 14 16404 18 16573 21 16783 25 16891 28 17107 32 17202 36 17348 40 17609 44 17755 48 17865 51 18001 56 18093 58 17422 0 0 0 0] TP 20000 PileUp [0.019 0.018 0.020 0.024 0.027 0.029 0.030 0.030 0.030 0.029 0.028 0.027 0.025 0.024 0.023 0.022 0.021 0.020 0.019 0.019 0.018 0.017 0.016 0.016 0.015 0.015 0.014 0.014 0.013 0.013 0.012 0.012 0.012 0.011 0.011 0.011 0.010 0.010 0.010 0.009 0.009 0.009 0.009 0.009 0.008 0.008 0.008 0.008 0.008 0.008 0.007 0.007 0.007 0.007 0.007 0.007 0.007 0.006 0.006 0.006 0.006 0.006 0.006 0.006 0.006 0.006 0.006 0.006 0.005 0.005 0.005 0.005 0.005 0.005 0.005 0.005 0.005 0.005 0.005 0.005 0.005 0.005 0.005 0.005 0.005 0.004 0.004 0.004 0.004 0.004 0.004 0.004 0.004 0.004 0.004 0.004 0.004 0.004 0.000] PileUpThr 1
-                        # if (m := re.search('.*RISE\s+(\d+)\s+.*FALL\s+(\d+)\s+.*NOISE\s+(\d+)\s+.*\sMAX\s+(\d+)\s+.*\s+T1\s+([^ ]+)\s+.*',
-                        if (m := re.search('\sPileUpThr\s+(\d+)', resp_decoded)):
+                        # if (m := re.search('.*RISE\\s+(\\d+)\\s+.*FALL\\s+(\\d+)\\s+.*NOISE\\s+(\\d+)\\s+.*\\sMAX\\s+(\\d+)\\s+.*\\s+T1\\s+([^ ]+)\\s+.*',
+                        if (m := re.search('\\sPileUpThr\\s+(\\d+)', resp_decoded)):
                             shproto.dispatcher.detector_pthr = int(m.group(1))
-                        if (m := re.search('\sPOT\s+(\d+)', resp_decoded)):
+                        if (m := re.search('\\sPOT\\s+(\\d+)', resp_decoded)):
                             shproto.dispatcher.detector_U = int(m.group(1))
-                        if (m := re.search('\sPOT2\s+(\d+)', resp_decoded)):
+                        if (m := re.search('\\sPOT2\\s+(\\d+)', resp_decoded)):
                             shproto.dispatcher.detector_V = int(m.group(1))
-                        if (m := re.search('.*RISE\s+(\d+)\s+.*FALL\s+(\d+)\s+.*NOISE\s+(\d+)\s+.*\sMAX\s+(\d+)\s+.*\sT\d\s+(\d+(\.\d+)*).*',
+                        if (m := re.search('.*RISE\\s+(\\d+)\\s+.*FALL\\s+(\\d+)\\s+.*NOISE\\s+(\\d+)\\s+.*\\sMAX\\s+(\\d+)\\s+.*\\sT\\d\\s+(\\d+(\\.\\d+)*).*',
                                 resp_decoded)):
                             shproto.dispatcher.detector_ris  = int(m.group(1))
                             shproto.dispatcher.detector_fall = int(m.group(2))
@@ -413,7 +413,7 @@ def process_01(filename):
                             time.sleep(2)
                             shproto.dispatcher.verbose = shproto.dispatcher.verbose_prev
                             shproto.dispatcher.spec_stop()
-                            shproto.dispatcher.pulse_avg_mode = False
+                            shproto.dispatcher.pulse_avg_mode = 0
     
                     if shproto.dispatcher.pulse_avg_mode == 2:
                             for pulse in pulses:
