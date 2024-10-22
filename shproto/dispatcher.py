@@ -116,6 +116,11 @@ def start(sn=None):
                 try:
                     resp_decoded = resp_decoded.decode("ascii")
                     resp_lines = resp_decoded.splitlines()
+                    if (not shproto.dispatcher.hide_next_responce and not re.search('^mi.*index.*', resp_decoded)):
+                        # mi 5423 s 2 index 1388 integ 2900 mx 457 th 14 count 16 proc_case 3 from 5416 to 5432 pm 1 ):
+                        print("<< got text")
+                        print("<< {}".format(resp_decoded))
+                        # print("pulse: {}".format(resp_decoded))
                     if re.search('^VERSION', resp_decoded):
                         shproto.dispatcher.inf_str = resp_decoded
                         shproto.dispatcher.inf_str = shproto.dispatcher.inf_str.rstrip()
@@ -136,7 +141,7 @@ def start(sn=None):
                             shproto.dispatcher.detector_max  = int(m.group(4))
                             shproto.dispatcher.detector_temp = float(m.group(5))
                             shproto.dispatcher.noise_threshold = shproto.dispatcher.detector_nos+1;
-                            print("detector -ris: {} -fall: {} nos: {} -max: {} -U: {} -V: {} -pthr: {} tempereature: {}".format(
+                            print("detector: -ris {}, -fall {}, -nos {}, -max {}, -U {}, -V {}, -pthr {}, tempereature: {}".format(
                                     shproto.dispatcher.detector_ris,
                                     shproto.dispatcher.detector_fall,
                                     shproto.dispatcher.detector_nos,
@@ -148,11 +153,6 @@ def start(sn=None):
                                     ))
                 except UnicodeDecodeError:
                     print("Unknown non-text response.")
-                if (not shproto.dispatcher.hide_next_responce and not re.search('^mi.*index.*', resp_decoded)):
-                    # mi 5423 s 2 index 1388 integ 2900 mx 457 th 14 count 16 proc_case 3 from 5416 to 5432 pm 1 ):
-                    print("<< got text")
-                    print("<< {}".format(resp_decoded))
-                    # print("pulse: {}".format(resp_decoded))
                 with shproto.dispatcher.hide_next_responce_lock:
                     shproto.dispatcher.hide_next_responce = False
                 if len(resp_lines) == 40:
@@ -355,7 +355,7 @@ def process_01(filename):
                                         center_idx + shproto.dispatcher.pileup_skip + 100));
                                 # print("pulse max {} at {} {}".format(v_max, center_idx, pulse))
                                 # print("pulse max {} at {}".format(v_max, center_idx))
-                                if (max(pulse[center_idx + shproto.dispatcher.pileup_skip:]) < v_max * 0.1): # no big pulses at tail
+                                if (max(pulse[center_idx + shproto.dispatcher.pileup_skip:]) < v_max * 0.3): # no big pulses at tail
                                     # print("pulse is good")
                                     # print("pulse max {} at {} {}".format(v_max, center_idx, pulse))
                                     pulse_avg_count += 1
