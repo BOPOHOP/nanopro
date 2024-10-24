@@ -8,7 +8,7 @@ import argparse
 import os
 from datetime import datetime, timezone, timedelta
 
-spec_dir = os.environ["HOME"] + "/nanopro/p1/"
+spec_dir = os.environ["HOME"] + "/nanopro/p1/freq/"
 # spec_file = spec_dir + "spectrum.csv"
 
 shproto.dispatcher.start_timestamp = datetime.now(timezone.utc)

@@ -399,6 +399,14 @@ def process_01(filename):
                                         for p in pulse_avg_normal[range_start:range_end])))
                                 print("shape_i: {}".format(','.join("{:d}".format(int(p/pulse_avg_count)) 
                                         for p in pulse_avg[range_start:range_end])))
+                                print("shape_i: {}".format(','.join("{:4d}{:5d}".format(idx_p + range_start - pulse_avg_center - 1, int(p/pulse_avg_count)) 
+                                        for idx_p, p in enumerate(pulse_avg[range_start:range_end]))))
+                                print("avg(sum/max) = {:.2f} {:d}/{:d}".format(
+                                        sum(pulse_avg[idx_start:pulse_avg_center+shproto.dispatcher.pileup_skip])/avg_max,
+                                        int(sum(pulse_avg[idx_start:pulse_avg_center+shproto.dispatcher.pileup_skip])/pulse_avg_count),
+                                        int(avg_max/pulse_avg_count)))
+                            shproto.dispatcher.process_03("-mode 0")
+                            time.sleep(2)
                             shproto.dispatcher.process_03("-sto")
                             time.sleep(2)
                             shproto.dispatcher.process_03("-fall {:d}".format(shproto.dispatcher.pileup_skip))
@@ -408,8 +416,6 @@ def process_01(filename):
                                 shproto.dispatcher.process_03("-pthr {}".format(shproto.dispatcher.detector_pthr))
                             else:
                                 shproto.dispatcher.process_03("-pthr 8192")
-                            time.sleep(2)
-                            shproto.dispatcher.process_03("-mode 0")
                             time.sleep(2)
                             shproto.dispatcher.verbose = shproto.dispatcher.verbose_prev
                             shproto.dispatcher.spec_stop()
