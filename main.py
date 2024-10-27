@@ -73,6 +73,8 @@ if __name__ == '__main__':
         spec_file = args.file
     else:
         spec_file = spec_dir + args.file
+    spec_file = re.sub(r'\.csv$', '', spec_file, flags=re.IGNORECASE)
+    spec_file = re.sub(r'\.xml$', '', spec_file, flags=re.IGNORECASE)
     if not re.search("\\.csv$", spec_file, flags=re.IGNORECASE):
         spec_file += ".csv"
     if args.csv:
