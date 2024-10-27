@@ -141,7 +141,8 @@ def start(sn=None):
                             shproto.dispatcher.detector_max  = int(m.group(4))
                             shproto.dispatcher.detector_temp = float(m.group(5))
                             shproto.dispatcher.noise_threshold = shproto.dispatcher.detector_nos+1;
-                            print("detector: -ris {}, -fall {}, -nos {}, -max {}, -U {}, -V {}, -pthr {}, tempereature: {}".format(
+                            print("{} detector: -ris {}, -fall {}, -nos {}, -max {}, -U {}, -V {}, -pthr {}, tempereature: {}".format(
+                                    datetime.now().strftime("%Y-%m-%d_%H:%M:%S"),
                                     shproto.dispatcher.detector_ris,
                                     shproto.dispatcher.detector_fall,
                                     shproto.dispatcher.detector_nos,
@@ -267,13 +268,14 @@ def process_01(filename):
         timer += 1
         timer2 += 1
         time.sleep(1)
+        runtime_seconds = (datetime.now(timezone.utc) - shproto.dispatcher.start_timestamp).total_seconds()
         if timer2 == 180:
             with shproto.dispatcher.hide_next_responce_lock:
                 shproto.dispatcher.hide_next_responce = True
             shproto.dispatcher.process_03("-inf")
             timer2 = 0
-        if ((shproto.dispatcher.total_time < 300 and timer >= 5)
-                or (shproto.dispatcher.total_time < 3600 and timer >= 30)
+        if (((shproto.dispatcher.total_time < 300 or runtime_seconds < 300) and timer >= 5)
+                or ((shproto.dispatcher.total_time < 3600 or runtime_seconds < 3600) and timer >= 30)
                 or timer >= 60) :
             timer = 0
             with shproto.dispatcher.histogram_lock:
