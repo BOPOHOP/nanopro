@@ -274,8 +274,8 @@ def process_01(filename):
                 shproto.dispatcher.hide_next_responce = True
             shproto.dispatcher.process_03("-inf")
             timer2 = 0
-        if (((shproto.dispatcher.total_time < 300 or runtime_seconds < 300) and timer >= 5)
-                or ((shproto.dispatcher.total_time < 3600 or runtime_seconds < 3600) and timer >= 30)
+        if (((shproto.dispatcher.total_time < 306 or runtime_seconds < 306) and timer >= 5)
+                or ((shproto.dispatcher.total_time < 3640 or runtime_seconds < 3640) and timer >= 30)
                 or timer >= 60) :
             timer = 0
             with shproto.dispatcher.histogram_lock:
