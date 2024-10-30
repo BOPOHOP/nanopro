@@ -12,6 +12,7 @@ spec_dir = os.environ["HOME"] + "/nanopro/p1/freq/"
 # spec_file = spec_dir + "spectrum.csv"
 
 shproto.dispatcher.start_timestamp = datetime.now(timezone.utc)
+port_path = None
 
 
 def helptxt():
@@ -68,7 +69,9 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
     if args.device != '':
+        print ("device arg: {}".format(args.device))
         shproto.port.getportbyserialnumber(args.device)
+        port_path = args.device
     if re.search("^[/\\.].*", args.file):
         spec_file = args.file
     else:
@@ -103,7 +106,7 @@ if __name__ == '__main__':
         helptxt()
 
     print("Found devices: {}".format(shproto.port.getallportsastext()))
-    dispatcher = threading.Thread(target=shproto.dispatcher.start)
+    dispatcher = threading.Thread(target=shproto.dispatcher.start, args=[port_path])
     dispatcher.start()
     time.sleep(1)
     spec = threading.Thread(target=shproto.dispatcher.process_01, args=(spec_file,))
@@ -171,7 +174,7 @@ if __name__ == '__main__':
                 time.sleep(1)
                 with shproto.dispatcher.stopflag_lock:
                     shproto.dispatcher.stopflag = 0
-                dispatcher = threading.Thread(target=shproto.dispatcher.start)
+                dispatcher = threading.Thread(target=shproto.dispatcher.start, args=[port_path])
                 dispatcher.start()
                 time.sleep(1)
                 continue
@@ -247,7 +250,8 @@ if __name__ == '__main__':
                 time.sleep(1)
                 with shproto.dispatcher.stopflag_lock:
                     shproto.dispatcher.stopflag = 0
-                dispatcher = threading.Thread(target=shproto.dispatcher.start)
+                port_path = command
+                dispatcher = threading.Thread(target=shproto.dispatcher.start, args=[port_path])
                 dispatcher.start()
                 time.sleep(1)
                 continue

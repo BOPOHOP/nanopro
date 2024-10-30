@@ -408,10 +408,14 @@ def process_01(filename):
                                         int(sum(pulse_avg[idx_start:pulse_avg_center+shproto.dispatcher.pileup_skip])/pulse_avg_count),
                                         int(avg_max/pulse_avg_count)))
                             shproto.dispatcher.process_03("-mode 0")
+                            shproto.dispatcher.process_03("-mode 0")
                             time.sleep(2)
                             shproto.dispatcher.process_03("-sto")
                             time.sleep(2)
                             shproto.dispatcher.process_03("-fall {:d}".format(shproto.dispatcher.pileup_skip))
+                            shproto.dispatcher.process_03("-fall {:d}".format(shproto.dispatcher.pileup_skip))
+                            time.sleep(2)
+                            shproto.dispatcher.process_03("-rst")
                             time.sleep(2)
                             #shproto.dispatcher.process_03("-pthr 1")
                             if (shproto.dispatcher.detector_pthr > 0):
@@ -420,8 +424,8 @@ def process_01(filename):
                                 shproto.dispatcher.process_03("-pthr 8192")
                             time.sleep(2)
                             shproto.dispatcher.verbose = shproto.dispatcher.verbose_prev
-                            shproto.dispatcher.spec_stop()
                             shproto.dispatcher.pulse_avg_mode = 0
+                            shproto.dispatcher.spec_stop()
     
                     if shproto.dispatcher.pulse_avg_mode == 2:
                             for pulse in pulses:
