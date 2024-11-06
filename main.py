@@ -70,6 +70,8 @@ if __name__ == '__main__':
     parser.add_argument('-s', '--skip_help', action='store_true')
     parser.add_argument('-T', '--thermo_log', action='store_true')
     parser.add_argument('-E', '--exit_thermo', action='store_true')
+    parser.add_argument('-N', '--auto_noise', action='store_true')
+    parser.add_argument('-B', '--auto_base', action='store_true')
 
     args = parser.parse_args()
     if args.device != '':
@@ -110,6 +112,10 @@ if __name__ == '__main__':
         shproto.dispatcher.thermo_log = True
     if (args.exit_thermo):
         shproto.dispatcher.exit_thermo = True
+    if (args.auto_noise):
+        shproto.dispatcher.auto_noise_test = True
+    if (args.auto_base):
+        shproto.dispatcher.auto_base_adjust = True
 
     if not args.skip_help:
         helptxt()

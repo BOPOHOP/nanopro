@@ -74,6 +74,11 @@ file_count        = 0
 remark_noise      = ""
 thermo_log        = False
 exit_thermo       = False
+auto_noise_test   = False
+auto_base_adjust  = False
+
+noise_testing     = False
+noise_test_time   = 2
 
 
 def start(sn=None):
@@ -266,6 +271,7 @@ def process_01(filename1):
     noise_sum_prev       = 0
     filename_new         = ""
     filename             = ""
+    noise_test_timer     = 0
 
     print("avg mode: {}".format(shproto.dispatcher.pulse_avg_mode))
     with shproto.dispatcher.spec_stopflag_lock:
@@ -275,7 +281,7 @@ def process_01(filename1):
         timer2 += 1
         time.sleep(1)
         runtime_seconds = (datetime.now(timezone.utc) - shproto.dispatcher.start_timestamp).total_seconds()
-        if timer2 >= 60:
+        if timer2 >= 60 and noise_test_timer == 0:
             with shproto.dispatcher.hide_next_responce_lock:
                 shproto.dispatcher.hide_next_responce = True
             shproto.dispatcher.process_03("-inf")
