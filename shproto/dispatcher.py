@@ -80,7 +80,7 @@ auto_base_adjust  = False
 noise_testing     = False
 noise_test_time   = 10
 noise_target      = 1.5
-noise_test_period = 60
+noise_test_period = 900
 
 
 def start(sn=None):
@@ -301,12 +301,12 @@ def process_01(filename1):
             sys.stdout.flush()
 
         if shproto.dispatcher.noise_testing: ## finish noise test
-            #shproto.dispatcher.remark_noise = "Avegare noise level {:.3f} {:d} samples; -U{:d} -V{:d} T{}; base={:.3f}".format(
-            #        shproto.dispatcher.noise_level, shproto.dispatcher.noise_sum_count,
-            #        shproto.dispatcher.detector_U, shproto.dispatcher.detector_V, shproto.dispatcher.detector_temp,
-            #        shproto.dispatcher.noise_level + shproto.dispatcher.detector_V
-            #        )
-            #print("noise collector: {}".format(shproto.dispatcher.remark_noise))
+            shproto.dispatcher.remark_noise = "Avegare noise level {:.3f} {:d} samples; -U{:d} -V{:d} T{}; base={:.3f}".format(
+                    shproto.dispatcher.noise_level, shproto.dispatcher.noise_sum_count,
+                    shproto.dispatcher.detector_U, shproto.dispatcher.detector_V, shproto.dispatcher.detector_temp,
+                    shproto.dispatcher.noise_level + shproto.dispatcher.detector_V
+                    )
+            print("noise collector: {}".format(shproto.dispatcher.remark_noise))
             timer = 99999
             if (shproto.dispatcher.noise_sum_count < 1000):
                 print("too low samples count {}".format(shproto.dispatcher.noise_sum_count))
@@ -341,7 +341,7 @@ def process_01(filename1):
                 clear_pulses()
 
                 noise_test_timer = 99999
-                print("wait....")
+                print("wait1....")
                 sys.stdout.flush()
                 shproto.dispatcher.verbose = shproto.dispatcher.verbose_prev
                 time.sleep(noise_test_time)
@@ -407,7 +407,7 @@ def process_01(filename1):
             clear_pulses()
 
             sys.stdout.flush()
-            print("wait1....")
+            print("wait....")
             sys.stdout.flush()
             ## wait
             time.sleep(noise_test_time)
