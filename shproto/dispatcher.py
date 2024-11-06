@@ -78,7 +78,9 @@ auto_noise_test   = False
 auto_base_adjust  = False
 
 noise_testing     = False
-noise_test_time   = 2
+noise_test_time   = 10
+noise_target      = 1.5
+noise_test_period = 60
 
 
 def start(sn=None):
@@ -96,6 +98,7 @@ def start(sn=None):
     while not shproto.dispatcher.stopflag:
         if len(shproto.dispatcher.command) > 1:
             print("Send command: {}".format(command))
+            sys.stdout.flush()
             if command == "-rst":
                 shproto.dispatcher.clear()
             tx_packet = shproto.packet()
@@ -140,19 +143,25 @@ def start(sn=None):
                         # shproto.dispatcher.inf_str = re.sub(r'\\[[^]]*\\]', '...', shproto.dispatcher.inf_str, count = 2)
                         # VERSION 13 RISE 7 FALL 8 NOISE 14 F 1000000.00 MAX 17118 HYST 1 MODE 0 STEP 1 t 156 POT 173 POT2 42 T1 28.5 T2 OFF T3 OFF Prise 40 Srise 8 OUT 0..0/1 Pfall 0 Sfall 0 TC ON TCpot ON Tco [-40 13128 -1 15530 2 15572 6 15920 10 16007 14 16404 18 16573 21 16783 25 16891 28 17107 32 17202 36 17348 40 17609 44 17755 48 17865 51 18001 56 18093 58 17422 0 0 0 0] TP 20000 PileUp [0.019 0.018 0.020 0.024 0.027 0.029 0.030 0.030 0.030 0.029 0.028 0.027 0.025 0.024 0.023 0.022 0.021 0.020 0.019 0.019 0.018 0.017 0.016 0.016 0.015 0.015 0.014 0.014 0.013 0.013 0.012 0.012 0.012 0.011 0.011 0.011 0.010 0.010 0.010 0.009 0.009 0.009 0.009 0.009 0.008 0.008 0.008 0.008 0.008 0.008 0.007 0.007 0.007 0.007 0.007 0.007 0.007 0.006 0.006 0.006 0.006 0.006 0.006 0.006 0.006 0.006 0.006 0.006 0.005 0.005 0.005 0.005 0.005 0.005 0.005 0.005 0.005 0.005 0.005 0.005 0.005 0.005 0.005 0.005 0.005 0.004 0.004 0.004 0.004 0.004 0.004 0.004 0.004 0.004 0.004 0.004 0.004 0.004 0.000] PileUpThr 1
                         # if (m := re.search('.*RISE\\s+(\\d+)\\s+.*FALL\\s+(\\d+)\\s+.*NOISE\\s+(\\d+)\\s+.*\\sMAX\\s+(\\d+)\\s+.*\\s+T1\\s+([^ ]+)\\s+.*',
-                        if (m := re.search('\\sPileUpThr\\s+(\\d+)', resp_decoded)):
-                            shproto.dispatcher.detector_pthr = int(m.group(1))
-                        if (m := re.search('\\sPOT\\s+(\\d+)', resp_decoded)):
-                            shproto.dispatcher.detector_U = int(m.group(1))
-                        if (m := re.search('\\sPOT2\\s+(\\d+)', resp_decoded)):
-                            shproto.dispatcher.detector_V = int(m.group(1))
+                        if shproto.dispatcher.pulse_avg_mode == 0:
+                            if (m := re.search('\\sPileUpThr\\s+(\\d+)', resp_decoded)):
+                                shproto.dispatcher.detector_pthr = int(m.group(1))
+                            if (m := re.search('\\sPOT\\s+(\\d+)', resp_decoded)):
+                                shproto.dispatcher.detector_U = int(m.group(1))
+                            if (m := re.search('\\sPOT2\\s+(\\d+)', resp_decoded)):
+                                shproto.dispatcher.detector_V = int(m.group(1))
                         if (m := re.search('.*RISE\\s+(\\d+)\\s+.*FALL\\s+(\\d+)\\s+.*NOISE\\s+(\\d+)\\s+.*\\sMAX\\s+(\\d+)\\s+.*\\sT\\d\\s+(\\d+(\\.\\d+)*).*',
                                 resp_decoded)):
-                            shproto.dispatcher.detector_ris  = int(m.group(1))
-                            shproto.dispatcher.detector_fall = int(m.group(2))
+
+                            if shproto.dispatcher.pulse_avg_mode == 0:
+                                shproto.dispatcher.detector_ris  = int(m.group(1))
+                                shproto.dispatcher.detector_fall = int(m.group(2))
+
                             shproto.dispatcher.detector_nos  = int(m.group(3))
                             shproto.dispatcher.detector_max  = int(m.group(4))
                             shproto.dispatcher.detector_temp = float(m.group(5))
+                            if (shproto.dispatcher.detector_temp_prev) < -100:
+                                shproto.dispatcher.detector_temp_prev = shproto.dispatcher.detector_temp
                             shproto.dispatcher.noise_threshold = shproto.dispatcher.detector_nos+1;
                             print("{} detector: -ris {}, -fall {}, -nos {}, -max {}, -U {}, -V {}, -pthr {}, temperature: {}".format(
                                     datetime.now().strftime("%Y-%m-%d_%H:%M:%S"),
@@ -257,7 +266,7 @@ def start(sn=None):
 
 def process_01(filename1):
     timer = 100000
-    timer2 = 0
+    timer_inf_cmd = 0
 
     pulse_avg_center  = 100
     pulse_avg_size    = 301
@@ -271,23 +280,145 @@ def process_01(filename1):
     noise_sum_prev       = 0
     filename_new         = ""
     filename             = ""
-    noise_test_timer     = 0
+    noise_test_timer     = noise_test_period - 2
+    drop_first           = True
 
     print("avg mode: {}".format(shproto.dispatcher.pulse_avg_mode))
     with shproto.dispatcher.spec_stopflag_lock:
         shproto.dispatcher.spec_stopflag = 0
     while not (shproto.dispatcher.spec_stopflag or shproto.dispatcher.stopflag):
         timer += 1
-        timer2 += 1
+        timer_inf_cmd += 1
+        noise_test_timer += 1
         time.sleep(1)
         runtime_seconds = (datetime.now(timezone.utc) - shproto.dispatcher.start_timestamp).total_seconds()
-        if timer2 >= 60 and noise_test_timer == 0:
+        if timer_inf_cmd >= 60 and shproto.dispatcher.pulse_avg_mode == 0:
             with shproto.dispatcher.hide_next_responce_lock:
                 shproto.dispatcher.hide_next_responce = True
             shproto.dispatcher.process_03("-inf")
-            timer2 = 0
+            time.sleep(1)
+            timer_inf_cmd = 0
             sys.stdout.flush()
-        if (((shproto.dispatcher.total_time < 306 or runtime_seconds < 306) and timer >= 5)
+
+        if shproto.dispatcher.noise_testing: ## finish noise test
+            #shproto.dispatcher.remark_noise = "Avegare noise level {:.3f} {:d} samples; -U{:d} -V{:d} T{}; base={:.3f}".format(
+            #        shproto.dispatcher.noise_level, shproto.dispatcher.noise_sum_count,
+            #        shproto.dispatcher.detector_U, shproto.dispatcher.detector_V, shproto.dispatcher.detector_temp,
+            #        shproto.dispatcher.noise_level + shproto.dispatcher.detector_V
+            #        )
+            #print("noise collector: {}".format(shproto.dispatcher.remark_noise))
+            timer = 99999
+            if (shproto.dispatcher.noise_sum_count < 1000):
+                print("too low samples count {}".format(shproto.dispatcher.noise_sum_count))
+                shproto.dispatcher.process_03("-mode 1")
+                time.sleep(2)
+                shproto.dispatcher.process_03("-sta")
+                time.sleep(2)
+                noise_test_timer = 99999
+            elif (shproto.dispatcher.auto_base_adjust and abs(shproto.dispatcher.noise_level - noise_target) > 0.7):
+                delta = int(shproto.dispatcher.noise_level - noise_target)
+                if (shproto.dispatcher.noise_level > noise_target):
+                    delta = int(delta * 2 / 3)
+                    if delta == 0:
+                        delta = 1
+                else:
+                    if shproto.dispatcher.noise_level < 0.1:
+                        delta = -5
+                    if delta == 0:
+                        delta = -1
+                new_V = int(shproto.dispatcher.detector_V) + delta
+                print("adjusting -V{} --> -V{}".format(shproto.dispatcher.detector_V, new_V))
+                shproto.dispatcher.process_03("-V {:d}".format(new_V))
+                time.sleep(1)
+                shproto.dispatcher.detector_V = new_V
+                sys.stdout.flush()
+                print("reseting noise test data")
+                sys.stdout.flush()
+                noise_sum         = 0
+                shproto.dispatcher.noise_sum_count   = 0
+                noise_sum_count_prev = 0
+                noise_sum_prev       = 0
+                clear_pulses()
+
+                noise_test_timer = 99999
+                print("wait....")
+                sys.stdout.flush()
+                shproto.dispatcher.verbose = shproto.dispatcher.verbose_prev
+                time.sleep(noise_test_time)
+                shproto.dispatcher.verbose = 0
+                print("wait....done got {} pulses".format(len(shproto.dispatcher.pulses_buf)))
+                sys.stdout.flush()
+                if len(shproto.dispatcher.pulses_buf) < 2:
+                    shproto.dispatcher.process_03("-sta")
+                    time.sleep(2)
+            else:
+                print("auto test/adjust stop");
+                sys.stdout.flush()
+                shproto.dispatcher.process_03("-sto")
+                time.sleep(2)
+                shproto.dispatcher.process_03("-mode 0")
+                time.sleep(2)
+                shproto.dispatcher.verbose = shproto.dispatcher.verbose_prev
+                sys.stdout.flush()
+                shproto.dispatcher.process_03("-pthr {}".format(shproto.dispatcher.detector_pthr))
+                time.sleep(2)
+                shproto.dispatcher.process_03("-rst")
+                time.sleep(2)
+                shproto.dispatcher.process_03("-inf")
+                time.sleep(2)
+                shproto.dispatcher.process_03("-sta")
+                time.sleep(2)
+                #shproto.dispatcher.remark_noise = "Avegare noise level {:.3f} {:d} samples; -U{:d} -V{:d} T{}; base={:.3f}".format(
+                #        shproto.dispatcher.noise_level, shproto.dispatcher.noise_sum_count,
+                #        shproto.dispatcher.detector_U, shproto.dispatcher.detector_V, shproto.dispatcher.detector_temp,
+                #        shproto.dispatcher.noise_level + shproto.dispatcher.detector_V
+                #        )
+                #print("noise collector: {}".format(shproto.dispatcher.remark_noise))
+                shproto.dispatcher.noise_testing = 0
+                shproto.dispatcher.pulse_avg_mode = 0
+                noise_test_timer = 0
+                clear_pulses()
+                print("auto test/adjust stop done");
+
+        if (shproto.dispatcher.auto_noise_test 
+                and (noise_test_timer > noise_test_period) 
+                and not shproto.dispatcher.noise_testing): ## fast re-check
+            shproto.dispatcher.file_count += 1
+            shproto.dispatcher.noise_testing = True
+            shproto.dispatcher.verbose_prev = shproto.dispatcher.verbose
+            shproto.dispatcher.verbose    = 0
+            shproto.dispatcher.pulse_avg_mode    = 2
+            print("starting auto noise test")
+            shproto.dispatcher.process_03("-sto")
+            time.sleep(2)
+            shproto.dispatcher.process_03("-rst")
+            sys.stdout.flush()
+            time.sleep(2)
+            noise_sum         = 0
+            shproto.dispatcher.noise_sum_count   = 0
+            noise_sum_count_prev = 0
+            noise_sum_prev       = 0
+            shproto.dispatcher.process_03("-pthr 8192")
+            time.sleep(2)
+            shproto.dispatcher.process_03("-mode 1")
+            time.sleep(2)
+            shproto.dispatcher.process_03("-sta")
+            time.sleep(2)
+            clear_pulses()
+
+            sys.stdout.flush()
+            print("wait1....")
+            sys.stdout.flush()
+            ## wait
+            time.sleep(noise_test_time)
+            #process noise data at main loop
+            print("wait....done got {} pulses".format(len(shproto.dispatcher.pulses_buf)))
+            sys.stdout.flush()
+            timer = 99999
+
+
+
+        if ((((shproto.dispatcher.total_time < 306 or runtime_seconds < 306) or shproto.dispatcher.pulse_avg_mode != 0) and timer >= 5)
                 or ((shproto.dispatcher.total_time < 3640 or runtime_seconds < 3640) and timer >= 30)
                 or timer >= 60) :
             sys.stdout.flush()
@@ -298,16 +429,17 @@ def process_01(filename1):
             spec_pulses_total_cps = 0
             spec_timestamp = datetime.now(timezone.utc) - timedelta(seconds=shproto.dispatcher.total_time)
 
-            filename_new = re.sub(r'\.csv$', '', filename1, flags=re.IGNORECASE) + ".csv"
+            filename_new = re.sub(r'\.csv$', '', filename1, flags=re.IGNORECASE)
             if (shproto.dispatcher.thermo_log):
                 filename_new = re.sub(r'_TT.*$', '', filename_new)
-                filename_new = filename_new + "_TT{:+04.0f}_{:04d}.csv".format(shproto.dispatcher.detector_temp*10, shproto.dispatcher.file_count)
+                filename_new = filename_new + "_TT{:+04.0f}_{:04d}".format(shproto.dispatcher.detector_temp*10, shproto.dispatcher.file_count)
+            filename_new = filename_new + ".csv"
             if filename == "":
                 print("Start writing spectrum to file: {}".format(filename_new))
                 shproto.dispatcher.pulse_file_opened = 0
             else:
                 if filename != filename_new:
-                    print("Start writing spectrum to file: {}".format(filename))
+                    print("Start writing spectrum to file {} prev {}".format(filename_new, filename))
                     shproto.dispatcher.pulse_file_opened = 0
             if filename == "":
                 filename = filename_new
@@ -375,8 +507,9 @@ def process_01(filename1):
                     if shproto.dispatcher.pulse_avg_mode == 1:
                         if shproto.dispatcher.pulse_avg_wanted > pulse_avg_count:
                             for pulse in pulses:
-                                if len(pulse) > 500: # rest from osc mode
+                                if len(pulse) > 500 or drop_first: # rest from osc mode
                                     continue
+                                    drop_first = False
                                 v_max = max(pulse)
                                 #print("v_max: {}".format(v_max))
                                 if (v_max < shproto.dispatcher.pulse_avg_min or v_max > shproto.dispatcher.pulse_avg_max):
@@ -464,7 +597,11 @@ def process_01(filename1):
                             shproto.dispatcher.spec_stop()
     
                     if shproto.dispatcher.pulse_avg_mode == 2:
+                            # print("shproto.dispatcher.pulse_avg_mode={} len(pulses)={}".format(shproto.dispatcher.pulse_avg_mode, len(pulses)))
                             for pulse in pulses:
+                                if drop_first:
+                                    drop_first = False
+                                    continue
                                 pulse[len(pulse) - 2] = 4095
                                 v_max = 0
                                 no_pulse_idx_start = 0
@@ -529,9 +666,12 @@ def process_01(filename1):
                 filename = ""
                 shproto.dispatcher.process_03("-rst")
                 shproto.dispatcher.pulse_file_opened = 0
+                noise_test_timer = 99999
                 if (shproto.dispatcher.exit_thermo):
                     print("new value from temp sensor, exiting");
                     os._exit(1)
+            if (filename != filename_new):
+                filename = ""
             sys.stdout.flush()
     if shproto.dispatcher.pulse_file_opened == 1:
         fd_pulses.close()
@@ -630,4 +770,13 @@ def clear():
         shproto.dispatcher.lost_impulses = 0
         shproto.dispatcher.total_pulse_width = 0
         shproto.dispatcher.dropped = 0
+    clear_pulses()
+
+def clear_pulses():
+    ## clear pulses buf
+    with shproto.dispatcher.histogram_lock:
+        # print("{} pulses in buf".format(len(shproto.dispatcher.pulses_buf)))
+        pulses = shproto.dispatcher.pulses_buf
+        shproto.dispatcher.pulses_debug_count += len(shproto.dispatcher.pulses_buf)
+        shproto.dispatcher.pulses_buf = []
 
