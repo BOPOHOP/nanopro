@@ -6,9 +6,11 @@ import threading
 import re
 import argparse
 import os
+import sys
 from datetime import datetime, timezone, timedelta
 
-spec_dir = os.environ["HOME"] + "/nanopro/p1/freq/"
+#spec_dir = os.environ["HOME"] + "/nanopro/p1/freq/"
+spec_dir = os.environ["HOME"] + "/nanopro/temp-tests/"
 # spec_file = spec_dir + "spectrum.csv"
 
 shproto.dispatcher.start_timestamp = datetime.now(timezone.utc)
@@ -66,6 +68,8 @@ if __name__ == '__main__':
     parser.add_argument('-a', '--autostart', action='store_true')
     parser.add_argument('-v', '--verbose', action='store_true')
     parser.add_argument('-s', '--skip_help', action='store_true')
+    parser.add_argument('-T', '--thermo_log', action='store_true')
+    parser.add_argument('-E', '--exit_thermo', action='store_true')
 
     args = parser.parse_args()
     if args.device != '':
@@ -101,6 +105,11 @@ if __name__ == '__main__':
         shproto.dispatcher.verbose = 1
     else:
         shproto.dispatcher.verbose = 0
+
+    if (args.thermo_log):
+        shproto.dispatcher.thermo_log = True
+    if (args.exit_thermo):
+        shproto.dispatcher.exit_thermo = True
 
     if not args.skip_help:
         helptxt()
@@ -178,6 +187,69 @@ if __name__ == '__main__':
                 dispatcher.start()
                 time.sleep(1)
                 continue
+            # noise_check
+            if m := re.search("^(noise_check)", command):
+                shproto.dispatcher.spec_stop()
+                time.sleep(2)
+                spec = threading.Thread(target=shproto.dispatcher.process_01, args=(spec_file,))
+                time.sleep(1)
+
+                # noise_calc_time               = 180
+                #noise_calc_time               = 15
+                noise_calc_time               = 10
+                shproto.dispatcher.verbose_prev = shproto.dispatcher.verbose
+                shproto.dispatcher.verbose    = 0
+
+                print("preparing for noise level calculation ({}sec)".format(noise_calc_time))
+                shproto.dispatcher.process_03("-rst")
+                sys.stdout.flush()
+                time.sleep(2)
+                shproto.dispatcher.process_03("-sto")
+                sys.stdout.flush()
+                time.sleep(2)
+                shproto.dispatcher.process_03("-pthr 8192")
+                sys.stdout.flush()
+                time.sleep(2)
+                shproto.dispatcher.process_03("-mode 1")
+                sys.stdout.flush()
+                time.sleep(2)
+                shproto.dispatcher.process_03("-sta")
+                sys.stdout.flush()
+                time.sleep(2)
+                shproto.dispatcher.pulse_avg_mode    = 2
+                if shproto.dispatcher.spec_stopflag == 1:
+                    spec.start()
+                print("starting noise level calculation ({}sec)".format(noise_calc_time))
+                sys.stdout.flush()
+                time.sleep(noise_calc_time + 2)
+                shproto.dispatcher.process_03("-sto")
+                time.sleep(2)
+                shproto.dispatcher.process_03("-mode 0")
+                time.sleep(2)
+                shproto.dispatcher.remark_noise = "Avegare noise level {:.3f} {:d} samples; -U{:d} -V{:d} T{}; base={:.3f}".format(
+                        shproto.dispatcher.noise_level, shproto.dispatcher.noise_sum_count,
+                        shproto.dispatcher.detector_U, shproto.dispatcher.detector_V, shproto.dispatcher.detector_temp,
+                        shproto.dispatcher.noise_level + shproto.dispatcher.detector_V
+                        )
+                print("\n{}\n".format(shproto.dispatcher.remark_noise))
+                sys.stdout.flush()
+                shproto.dispatcher.spec_stop()
+                time.sleep(2)
+                spec = threading.Thread(target=shproto.dispatcher.process_01, args=(spec_file,))
+                time.sleep(2)
+
+                shproto.dispatcher.pulse_avg_mode    = 0
+                shproto.dispatcher.process_03("-rst")
+
+                time.sleep(2)
+                shproto.dispatcher.verbose = shproto.dispatcher.verbose_prev
+                shproto.dispatcher.process_03("-pthr {}".format(shproto.dispatcher.detector_pthr))
+                time.sleep(2)
+
+                time.sleep(2)
+                if shproto.dispatcher.spec_stopflag == 1:
+                    spec.start()
+                continue
             # pulse_average pulses fall min_dac max_dac
             if m := re.search("^(pulse_average)\\s+(\\d+)\\s+(\\d+)\\s+(\\d+)\\s+(\\d+)", command):
                 shproto.dispatcher.spec_stop()
@@ -219,8 +291,12 @@ if __name__ == '__main__':
                 time.sleep(2)
                 shproto.dispatcher.process_03("-mode 0")
                 time.sleep(2)
-                print("\nAvegare noise level {:.3f} {:d} samples\n".format(
-                        shproto.dispatcher.noise_level, shproto.dispatcher.noise_sum_count))
+                shproto.dispatcher.remark_noise = "Avegare noise level {:.3f} {:d} samples; -U{:d} -V{:d} T{}".format(
+                        shproto.dispatcher.noise_level, shproto.dispatcher.noise_sum_count,
+                        shproto.dispatcher.detector_U, shproto.dispatcher.detector_V, shproto.dispatcher.detector_temp
+                        )
+                print("\n{}\n".format(shproto.dispatcher.remark_noise))
+
                 shproto.dispatcher.spec_stop()
                 time.sleep(2)
                 spec = threading.Thread(target=shproto.dispatcher.process_01, args=(spec_file,))

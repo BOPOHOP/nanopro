@@ -1,6 +1,7 @@
-import sys
 import threading
 import time
+import os
+import sys
 from datetime import datetime, timezone, timedelta
 from struct import unpack
 import binascii
@@ -22,6 +23,7 @@ detector_ris  = -999
 detector_fall = -999
 detector_max  = -999
 detector_temp = -999.99
+detector_temp_prev = -999.99
 detector_pthr = -999
 detector_V = -999
 detector_U = -999
@@ -68,6 +70,11 @@ pulse_avg_max     = 1800	# DAC value
 noise_threshold   = 14
 noise_level       = 0
 noise_sum_count   = 0
+file_count        = 0
+remark_noise      = ""
+thermo_log        = False
+exit_thermo       = False
+
 
 def start(sn=None):
     shproto.dispatcher.pulse_file_opened = 2
@@ -120,6 +127,7 @@ def start(sn=None):
                         # mi 5423 s 2 index 1388 integ 2900 mx 457 th 14 count 16 proc_case 3 from 5416 to 5432 pm 1 ):
                         print("<< got text")
                         print("<< {}".format(resp_decoded))
+                        sys.stdout.flush()
                         # print("pulse: {}".format(resp_decoded))
                     if re.search('^VERSION', resp_decoded):
                         shproto.dispatcher.inf_str = resp_decoded
@@ -141,7 +149,7 @@ def start(sn=None):
                             shproto.dispatcher.detector_max  = int(m.group(4))
                             shproto.dispatcher.detector_temp = float(m.group(5))
                             shproto.dispatcher.noise_threshold = shproto.dispatcher.detector_nos+1;
-                            print("{} detector: -ris {}, -fall {}, -nos {}, -max {}, -U {}, -V {}, -pthr {}, tempereature: {}".format(
+                            print("{} detector: -ris {}, -fall {}, -nos {}, -max {}, -U {}, -V {}, -pthr {}, temperature: {}".format(
                                     datetime.now().strftime("%Y-%m-%d_%H:%M:%S"),
                                     shproto.dispatcher.detector_ris,
                                     shproto.dispatcher.detector_fall,
@@ -152,6 +160,7 @@ def start(sn=None):
                                     shproto.dispatcher.detector_pthr,
                                     shproto.dispatcher.detector_temp
                                     ))
+                        sys.stdout.flush()
                 except UnicodeDecodeError:
                     print("Unknown non-text response.")
                 with shproto.dispatcher.hide_next_responce_lock:
@@ -241,11 +250,7 @@ def start(sn=None):
     print("Close port")
 
 
-def process_01(filename):
-    filename_pulses = re.sub(r'\.csv$', '', filename, flags=re.IGNORECASE)
-    filename_pulses += "_pulses.dat"
-    filename_xml = re.sub(r'\.csv$', '', filename, flags=re.IGNORECASE)
-    filename_xml += ".xml"
+def process_01(filename1):
     timer = 100000
     timer2 = 0
 
@@ -259,8 +264,9 @@ def process_01(filename):
     shproto.dispatcher.noise_sum_count   = 0
     noise_sum_count_prev = 0
     noise_sum_prev       = 0
+    filename_new         = ""
+    filename             = ""
 
-    print("Start writing spectrum to file: {}".format(filename))
     print("avg mode: {}".format(shproto.dispatcher.pulse_avg_mode))
     with shproto.dispatcher.spec_stopflag_lock:
         shproto.dispatcher.spec_stopflag = 0
@@ -269,20 +275,42 @@ def process_01(filename):
         timer2 += 1
         time.sleep(1)
         runtime_seconds = (datetime.now(timezone.utc) - shproto.dispatcher.start_timestamp).total_seconds()
-        if timer2 == 180:
+        if timer2 >= 60:
             with shproto.dispatcher.hide_next_responce_lock:
                 shproto.dispatcher.hide_next_responce = True
             shproto.dispatcher.process_03("-inf")
             timer2 = 0
+            sys.stdout.flush()
         if (((shproto.dispatcher.total_time < 306 or runtime_seconds < 306) and timer >= 5)
                 or ((shproto.dispatcher.total_time < 3640 or runtime_seconds < 3640) and timer >= 30)
                 or timer >= 60) :
+            sys.stdout.flush()
             timer = 0
             with shproto.dispatcher.histogram_lock:
                 histogram = shproto.dispatcher.histogram
             spec_pulses_total = sum(histogram)
             spec_pulses_total_cps = 0
             spec_timestamp = datetime.now(timezone.utc) - timedelta(seconds=shproto.dispatcher.total_time)
+
+            filename_new = re.sub(r'\.csv$', '', filename1, flags=re.IGNORECASE) + ".csv"
+            if (shproto.dispatcher.thermo_log):
+                filename_new = re.sub(r'_TT.*$', '', filename_new)
+                filename_new = filename_new + "_TT{:+04.0f}_{:04d}.csv".format(shproto.dispatcher.detector_temp*10, shproto.dispatcher.file_count)
+            if filename == "":
+                print("Start writing spectrum to file: {}".format(filename_new))
+                shproto.dispatcher.pulse_file_opened = 0
+            else:
+                if filename != filename_new:
+                    print("Start writing spectrum to file: {}".format(filename))
+                    shproto.dispatcher.pulse_file_opened = 0
+            if filename == "":
+                filename = filename_new
+
+            filename_pulses = re.sub(r'\.csv$', '', filename, flags=re.IGNORECASE)
+            filename_pulses += "_pulses.dat"
+            filename_xml = re.sub(r'\.csv$', '', filename, flags=re.IGNORECASE)
+            filename_xml += ".xml"
+
             if shproto.dispatcher.total_time > 0 or len(shproto.dispatcher.pulses_buf) > 0:
                 if shproto.dispatcher.total_time == 0:
                     spec_pulses_total_cps = 0
@@ -306,6 +334,8 @@ def process_01(filename):
                                     ))
                             if shproto.dispatcher.inf_str != "":
                                 fd.writelines("remark, inf: {}\n".format(shproto.dispatcher.inf_str))
+                            if shproto.dispatcher.remark_noise != "":
+                                fd.writelines("remark, noise: {}\n".format(shproto.dispatcher.remark_noise))
                             fd.writelines("livetime, {}\n".format(shproto.dispatcher.total_time))
                             fd.writelines("realtime, {}\n".format(shproto.dispatcher.total_time))
                             detectorname_str = 'n15'
@@ -451,10 +481,13 @@ def process_01(filename):
                                         / (shproto.dispatcher.noise_sum_count - noise_sum_count_prev))
                             noise_sum_count_prev = shproto.dispatcher.noise_sum_count
                             noise_sum_prev       = noise_sum
-                            print("noise collector: total count: {:d} avg_noise: {:.2f} last: {:.2f}"
-                                    .format(shproto.dispatcher.noise_sum_count,
-                                            shproto.dispatcher.noise_level, noise_level_delta))
-
+                            shproto.dispatcher.remark_noise = "Avegare noise level {:.3f} {:d} samples; -U{:d} -V{:d} T{}; base={:.3f}".format(
+                                    shproto.dispatcher.noise_level, shproto.dispatcher.noise_sum_count,
+                                    shproto.dispatcher.detector_U, shproto.dispatcher.detector_V, shproto.dispatcher.detector_temp,
+                                    shproto.dispatcher.noise_level + shproto.dispatcher.detector_V
+                                    )
+                            print("noise collector: {}".format(shproto.dispatcher.remark_noise))
+                            sys.stdout.flush()
                     if shproto.dispatcher.pulse_avg_mode == 0:
                         if len(pulses) > 0 and shproto.dispatcher.pulse_file_opened != 1 and (fd_pulses := open(filename_pulses, "w+")):
                             shproto.dispatcher.pulse_file_opened = 1
@@ -472,6 +505,7 @@ def process_01(filename):
                     with open(filename_xml, "w") as fd:
                         fd.write(xml_str.decode(encoding="utf-8"))
 
+
             if shproto.dispatcher.verbose:
                 print(
                     "elapsed: {}/{:.0f} cps: {}/{:.2f} total_pkts: {} drop_pkts: {} "
@@ -482,6 +516,17 @@ def process_01(filename):
                         shproto.dispatcher.total_pkts, shproto.dispatcher.dropped,
                         shproto.dispatcher.lost_impulses, shproto.dispatcher.cpu_load,
                         shproto.dispatcher.pulses_debug_count))
+            if (shproto.dispatcher.thermo_log and
+                    re.sub(r'_[0-9][0-9][0-9][0-9].csv$', '', filename) != re.sub(r'_[0-9][0-9][0-9][0-9].csv$', '', filename_new)):
+                print("new name {} -> {}".format(filename, filename_new))
+                shproto.dispatcher.file_count += 1
+                filename = ""
+                shproto.dispatcher.process_03("-rst")
+                shproto.dispatcher.pulse_file_opened = 0
+                if (shproto.dispatcher.exit_thermo):
+                    print("new value from temp sensor, exiting");
+                    os._exit(1)
+            sys.stdout.flush()
     if shproto.dispatcher.pulse_file_opened == 1:
         fd_pulses.close()
         shproto.dispatcher.pulse_file_opened = 0
