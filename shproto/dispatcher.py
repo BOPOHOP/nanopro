@@ -79,7 +79,9 @@ auto_base_adjust  = False
 
 noise_testing     = False
 noise_test_time   = 10
-noise_target      = 1.5
+#noise_target      = 1.5
+#noise_target      = 3.1
+noise_target      = 5.0
 noise_test_period = 900
 
 
@@ -315,7 +317,7 @@ def process_01(filename1):
                 shproto.dispatcher.process_03("-sta")
                 time.sleep(2)
                 noise_test_timer = 99999
-            elif (shproto.dispatcher.auto_base_adjust and abs(shproto.dispatcher.noise_level - noise_target) > 0.7):
+            elif (shproto.dispatcher.auto_base_adjust and abs(shproto.dispatcher.noise_level - noise_target) > 0.9):
                 delta = int(shproto.dispatcher.noise_level - noise_target)
                 if (shproto.dispatcher.noise_level > noise_target):
                     delta = int(delta * 2 / 3)
