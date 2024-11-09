@@ -152,7 +152,7 @@ def start(sn=None):
                                 shproto.dispatcher.detector_U = int(m.group(1))
                             if (m := re.search('\\sPOT2\\s+(\\d+)', resp_decoded)):
                                 shproto.dispatcher.detector_V = int(m.group(1))
-                        if (m := re.search('.*RISE\\s+(\\d+)\\s+.*FALL\\s+(\\d+)\\s+.*NOISE\\s+(\\d+)\\s+.*\\sMAX\\s+(\\d+)\\s+.*\\sT\\d\\s+(\\d+(\\.\\d+)*).*',
+                        if (m := re.search('.*RISE\\s+(\\d+)\\s+.*FALL\\s+(\\d+)\\s+.*NOISE\\s+(\\d+)\\s+.*\\sMAX\\s+(\\d+)\\s+.*\\sT\\d\\s+([-+]*\\d+(\\.\\d+)*).*',
                                 resp_decoded)):
 
                             if shproto.dispatcher.pulse_avg_mode == 0:
