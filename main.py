@@ -9,8 +9,7 @@ import os
 import sys
 from datetime import datetime, timezone, timedelta
 
-#spec_dir = os.environ["HOME"] + "/nanopro/p1/freq/"
-spec_dir = os.environ["HOME"] + "/nanopro/temp-tests/"
+spec_dir = os.environ["HOME"] + "/nanopro/"
 # spec_file = spec_dir + "spectrum.csv"
 
 shproto.dispatcher.start_timestamp = datetime.now(timezone.utc)
@@ -61,6 +60,7 @@ if __name__ == '__main__':
         description='What the program does',
         epilog='Text at the bottom of help')
     parser.add_argument('file', default='spectrum.csv')
+    parser.add_argument('-b', '--base_dir', default='')
     parser.add_argument('-d', '--device', default='')
     parser.add_argument('-c', '--csv', action='store_true')
     parser.add_argument('-i', '--interpec_csv', action='store_true')
@@ -74,6 +74,9 @@ if __name__ == '__main__':
     parser.add_argument('-B', '--auto_base', action='store_true')
 
     args = parser.parse_args()
+    if args.base_dir != '':
+        spec_dir = args.base_dir + "/"
+        print ("base dir: {}".format(spec_dir))
     if args.device != '':
         print ("device arg: {}".format(args.device))
         shproto.port.getportbyserialnumber(args.device)

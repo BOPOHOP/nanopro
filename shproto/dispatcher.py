@@ -511,10 +511,11 @@ def process_01(filename1):
                             for pulse in pulses:
                                 if len(pulse) > 500 or drop_first: # rest from osc mode
                                     continue
-                                    drop_first = False
                                 v_max = max(pulse)
                                 #print("v_max: {}".format(v_max))
                                 if (v_max < shproto.dispatcher.pulse_avg_min or v_max > shproto.dispatcher.pulse_avg_max):
+                                    # print("pulse h={} range: {}...{}".format(v_max, 
+                                    #         shproto.dispatcher.pulse_avg_min, shproto.dispatcher.pulse_avg_max))
                                     continue
                                 for i, v in enumerate(pulse):
                                     if v == v_max:
@@ -538,7 +539,9 @@ def process_01(filename1):
                                     for i in range(range_start, range_end):
                                         #  print("agv[{}] += pulse[{}]".format(pulse_avg_center - center_idx + i, i))
                                         pulse_avg[i] += pulse[i - pulse_avg_center + center_idx]
-                            print("pulse averaging collected in range: {} pulses total: {}".format(
+                            drop_first = False
+                            print("pulse averaging collected in range {}...{}: {} pulses total: {}".format(
+                                    shproto.dispatcher.pulse_avg_min, shproto.dispatcher.pulse_avg_max,
                                     pulse_avg_count, shproto.dispatcher.pulses_debug_count))
                         # print("ranges0: {} - {} : {} {}".format(range_start,range_end, pulse_avg_center, center_idx))
                         if shproto.dispatcher.pulse_avg_wanted <= pulse_avg_count:
@@ -572,13 +575,14 @@ def process_01(filename1):
                                         for p in pulse_avg_normal[range_start:range_end])))
                                 print("shape_i: {}".format(','.join("{:d}".format(int(p/pulse_avg_count)) 
                                         for p in pulse_avg[range_start:range_end])))
-                                print("shape_i: {}".format(','.join("{:4d}{:5d}".format(idx_p + range_start - pulse_avg_center - 1, int(p/pulse_avg_count)) 
+                                print("shape_i: {}".format(','.join("{:4d}:{:5d}".format(idx_p + range_start - pulse_avg_center - 1, int(p/pulse_avg_count)) 
                                         for idx_p, p in enumerate(pulse_avg[range_start:range_end]))))
                                 print("avg(sum/max) = {:.2f} {:d}/{:d}".format(
                                         sum(pulse_avg[idx_start:pulse_avg_center+shproto.dispatcher.pileup_skip])/avg_max,
                                         int(sum(pulse_avg[idx_start:pulse_avg_center+shproto.dispatcher.pileup_skip])/pulse_avg_count),
                                         int(avg_max/pulse_avg_count)))
                             shproto.dispatcher.process_03("-mode 0")
+                            time.sleep(1)
                             shproto.dispatcher.process_03("-mode 0")
                             time.sleep(2)
                             shproto.dispatcher.process_03("-sto")
