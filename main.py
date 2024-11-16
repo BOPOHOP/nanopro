@@ -196,13 +196,18 @@ if __name__ == '__main__':
                 dispatcher.start()
                 time.sleep(1)
                 continue
-            # noise_check
-            if m := re.search("^(noise_check)", command):
+            # noise_check [offset]
+            if m := re.search("^(noise_check)(\\s+([-+]*\\d+))?", command):
                 shproto.dispatcher.spec_stop()
                 time.sleep(2)
                 spec = threading.Thread(target=shproto.dispatcher.process_01, args=(spec_file,))
                 time.sleep(1)
 
+                offset_str = m.group(3)
+                print("offset: {}".format(offset_str))
+                if offset_str != None and offset_str != "":
+                    with shproto.dispatcher.noise_test_offset_lock:
+                        shproto.dispatcher.noise_test_offset = int(offset_str)
                 # noise_calc_time               = 180
                 #noise_calc_time               = 15
                 noise_calc_time               = 10
@@ -216,9 +221,22 @@ if __name__ == '__main__':
                 shproto.dispatcher.process_03("-sto")
                 sys.stdout.flush()
                 time.sleep(2)
+                detector_V_save = 0
+                if (shproto.dispatcher.detector_V > 0 
+                        and shproto.dispatcher.noise_test_offset != 0 
+                        and shproto.dispatcher.detector_V - shproto.dispatcher.noise_test_offset > 0):
+                    with shproto.dispatcher.histogram_lock:
+                        detector_V_save = shproto.dispatcher.detector_V
+                    shproto.dispatcher.process_03("-V {:d}".format(detector_V_save - shproto.dispatcher.noise_test_offset))
+                    sys.stdout.flush()
+                    time.sleep(2)
                 shproto.dispatcher.process_03("-pthr 8192")
                 sys.stdout.flush()
                 time.sleep(2)
+                if detector_V_save != 0:
+                    shproto.dispatcher.process_03("-inf")
+                    sys.stdout.flush()
+                    time.sleep(1)
                 shproto.dispatcher.process_03("-mode 1")
                 sys.stdout.flush()
                 time.sleep(2)
@@ -247,6 +265,11 @@ if __name__ == '__main__':
                 spec = threading.Thread(target=shproto.dispatcher.process_01, args=(spec_file,))
                 time.sleep(2)
 
+                if detector_V_save > 0:
+                    shproto.dispatcher.process_03("-V {:d}".format(detector_V_save))
+                    sys.stdout.flush()
+                    time.sleep(2)
+
                 shproto.dispatcher.pulse_avg_mode    = 0
                 shproto.dispatcher.process_03("-rst")
 
@@ -254,6 +277,10 @@ if __name__ == '__main__':
                 shproto.dispatcher.verbose = shproto.dispatcher.verbose_prev
                 shproto.dispatcher.process_03("-pthr {}".format(shproto.dispatcher.detector_pthr))
                 time.sleep(2)
+                if detector_V_save != 0:
+                    shproto.dispatcher.process_03("-inf")
+                    sys.stdout.flush()
+                    time.sleep(1)
 
                 time.sleep(2)
                 if shproto.dispatcher.spec_stopflag == 1:
