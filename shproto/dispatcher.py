@@ -3,7 +3,7 @@ import time
 import os
 import sys
 from datetime import datetime, timezone, timedelta
-from struct import unpack
+from struct import unpack,pack
 import binascii
 import re
 import xml.etree.ElementTree as ET
@@ -111,20 +111,28 @@ def start(sn=None):
             for i in range(len(command)):
                 tx_packet.add(ord(command[i]))
             tx_packet.stop()
-            nano.write(tx_packet.payload)
+            #socket# nano.write(tx_packet.payload)
+            format_pack_str = "<{}B".format(len(tx_packet.payload))
+            #print("format '{}', tx_packet.payload".format(format_pack_str), tx_packet.payload);
+            write_bin=pack(format_pack_str, *tx_packet.payload)
+            # print("pack ok")
+            nano.write(write_bin)
+            #socket#
             with shproto.dispatcher.command_lock:
                 shproto.dispatcher.command = ""
         #        if nano.in_waiting == 0:
         #            time.sleep(0.05)
         #            continue
-        READ_BUFFER = max(nano.in_waiting, READ_BUFFER)
-        rx_byte_arr = nano.read(size=READ_BUFFER)
+        #socket# READ_BUFFER = max(nano.in_waiting, READ_BUFFER)
+        #socket# rx_byte_arr = nano.read(size=READ_BUFFER)
+        rx_byte_arr = nano.read(READ_BUFFER)    #socket#
         # print("rx_byte_arr len = {}/{}".format(len(rx_byte_arr),READ_BUFFER))
         for rx_byte in rx_byte_arr:
             response.read(rx_byte)
             if response.dropped:
                 shproto.dispatcher.dropped += 1
                 shproto.dispatcher.total_pkts += 1
+                continue
             if not response.ready:
                 continue
             shproto.dispatcher.total_pkts += 1
@@ -580,7 +588,7 @@ def process_01(filename1):
                                         for p in pulse_avg_normal[range_start:range_end])))
                                 print("shape_i: {}".format(','.join("{:d}".format(int(p/pulse_avg_count)) 
                                         for p in pulse_avg[range_start:range_end])))
-                                print("shape_i: {}".format(','.join("{:4d}:{:5d}".format(idx_p + range_start - pulse_avg_center - 1, int(p/pulse_avg_count)) 
+                                print("shape_i: {}".format(','.join("{:4d}:{:4d}".format(idx_p + range_start - pulse_avg_center - 1, int(p/pulse_avg_count)) 
                                         for idx_p, p in enumerate(pulse_avg[range_start:range_end]))))
                                 print("avg(sum/max) = {:.2f} {:d}/{:d}".format(
                                         sum(pulse_avg[idx_start:pulse_avg_center+shproto.dispatcher.pileup_skip])/avg_max,

@@ -50,6 +50,7 @@ def helptxt():
             Exits terminal
             
         Type serial number to use this device.
+        Device can be serial number, /dev/port_path, tcp://host.name:PORT
     """)
 
 

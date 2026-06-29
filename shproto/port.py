@@ -50,8 +50,29 @@ def getdevicebyserialnumber(sn):
     else:
         return getportbyserialnumber(sn).device
 
-
+import socket
 def connectdevice(sn=None):
+    m = re.search("^tcp://(.+):(\d+)", sn)
+    if m is not None and len(m.groups()) == 2:
+        TCP_HOST = m.group(1)
+        TCP_PORT = int(m.group(2))
+        print("connect info: tcp_host: {} tcp_port: {}".format(TCP_HOST, TCP_PORT))
+        client_socket=socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        # Connect to the server
+        print("socket", client_socket)
+        try:
+            client_socket.connect((TCP_HOST, TCP_PORT))
+        except Exception as e:
+            print(f"connect to {TCP_HOST} {TCP_PORT} error: {e}")
+            exit (1)
+
+        print("socket connected", client_socket)
+        #/ with sock.makefile(mode='rw', encoding='utf-8') as sock_file:
+        sock_file=client_socket.makefile(mode='rwb', buffering=0)
+        print("socket -> file", sock_file)
+        return sock_file
+
+
     if sn is None and len(getallports()) > 0:
         nanoport = getallports()[0].device
     else:
