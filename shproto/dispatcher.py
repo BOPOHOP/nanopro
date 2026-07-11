@@ -145,6 +145,7 @@ def start(sn=None):
                     resp_lines = resp_decoded.splitlines()
                     if (not shproto.dispatcher.hide_next_responce and not re.search('^mi.*index.*', resp_decoded)):
                         # mi 5423 s 2 index 1388 integ 2900 mx 457 th 14 count 16 proc_case 3 from 5416 to 5432 pm 1 ):
+                        # mi ???? s ? index BIN  integralVAL mx DAC_max th ?? count RIS+FALL proc_case ? from pos_in_ADC_buf to pos_in_ADC_buf pm ??
                         print("<< got text")
                         print("<< {}".format(resp_decoded))
                         sys.stdout.flush()
@@ -238,10 +239,11 @@ def start(sn=None):
             elif response.cmd == shproto.MODE_PULSE:
                 # print("<< got pulse")
                 shproto.dispatcher.pkts01 += 1
-                count = int((response.len - 2) / 2)
+                count = int((response.len) / 2)
                 format_unpack_str = "<{}H".format(count)
                 # format_print_str = "{}{:d}:d{}".format("{", count, "}")
-                pulse = list(unpack(format_unpack_str, bytes(response.payload[2:count * 2 + 2])))
+                # pulse = list(unpack(format_unpack_str, bytes(response.payload[2:count * 2 + 2])))
+                pulse = list(unpack(format_unpack_str, bytes(response.payload[0:count * 2])))
                 # str3 = ' '.join("{:d}".format(p) for p in  pulse1)
                 # print("format: {} {} pulse unpack: {}".format(format_unpack_str, format_print_str, str3))
                 # for i in range(0, count):
