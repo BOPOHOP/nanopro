@@ -52,7 +52,7 @@ def getdevicebyserialnumber(sn):
 
 import socket
 def connectdevice(sn=None):
-    m = re.search("^tcp://(.+):(\d+)", sn)
+    m = re.search("^tcp://(.+):(\d+)", sn, flags=re.IGNORECASE)
     if m is not None and len(m.groups()) == 2:
         TCP_HOST = m.group(1)
         TCP_PORT = int(m.group(2))
