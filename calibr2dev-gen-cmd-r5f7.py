@@ -16,26 +16,22 @@ import binascii
 #coeff =   [-5.47761, 0.373181, 6.15434E-06, -4.64364E-10, 0]   # nos14 rise5 fall8 prise40 srise8 pfall0 sfall0 StdTHR+
 #coeff =   [-5.5677,  0.372833, 6.2539E-06,  -4.71869E-10, 0]   # nos14 rise5 fall8 prise40 srise8 pfall0 sfall0 StdTHR+
 
-# coeff =   [-6.62242, 0.372515, 6.62352E-06, -4.8421E-10, 0]   # 2M nos14 rise7 fall8 prise40 srise8 pfall0 sfall0 StdTHR
+#coeff =   [-6.62242, 0.372515, 6.62352E-06, -4.8421E-10, 0]   # 2M nos14 rise7 fall8 prise40 srise8 pfall0 sfall0 StdTHR
 
 #coeff =   [-8.29109, 0.369356, 6.67704E-06, -5.31864E-10, 0]   # nos14 rise5 fall8 prise40 srise8 pfall0 sfall0 StdTHR+ Fix-0.99
 
-#coeff =   [-5.565360, 3.71104e-01, 5.86174e-06, -4.26725e-10, 0]   # nos14 rise5 fall8 prise40 srise8 pfall0 sfall0 MyTHR5
+#coeff =  [-5.56536, 0.371104, 5.86174e-06, -4.26725e-10, 0]   # nos14 rise5 fall8 prise40 srise8 pfall0 sfall0 MyTHR5 MyTCO
+#coeff =   [-5.88653, 0.37016,  6.15855E-06, -4.59393E-10, 0]   # nos14 rise5 fall8 prise40 srise8 pfall0 sfall0 MyTHR5 MyTCO
+# coeff =   [-9, 0.37016,  6.15855E-06, -4.59393E-10, 0]   # nos14 rise5 fall8 prise40 srise8 pfall0 sfall0 MyTHR5 MyTCO
+# coeff =   [-6.83881, 0.379463, 4.28985E-06, -2.62973E-10, 0]   # nos14 rise5 fall8 prise40 srise8 pfall0 sfall0 MyTHR5 stdTCO 29C
+# coeff =   [  -6.5,     0.375607, 6.26349E-06, -4.91393E-10, 0]   # nos14 rise5 fall8 prise40 srise8 pfall0 sfall0 MyTHR5 stdTCO 28-29C
+# coeff =   [  -3,   0.368751, 8.25521E-06, -6.62952E-10, 0 ]   # nos14 rise5 fall8 pr40 sr8 pf10 sf15 thrHI 28-29C
 
-#coeff =   [-9.95037, 0.377817, 4.70725e-06, -3.1341e-10, 0.0 ]   # nos14 rise5 fall8 prise40 srise8 pfall10 sfall15 MyTHR5
-#coeff =   [-5.01, 0.379, 6.852E-06, -5.637E-10, 0]   # n15-00000042-n15-r5-f8-U173 rise5 fall8 prise40 srise8 pfall10 sfall15 MyTHR5 2024.10.29 cs am th ra lu
-
-
-#coeff =   [-1.97, 0.3848, 6.303E-06, -5.142E-10, 0 ] # n15-00000042-n13-r5-f8-U150 prise40 srise8 pfall10 sfall15 MyU/max cs am th ra lu 2024.10.30
-# coeff =   [0.6, 0.3849, 6.303E-06, -5.142E-10, 0 ] # n15-00000042-n13-r5-f8-U150 prise40 srise8 pfall10 sfall15 MyU/max cs am th ra lu 2024.10.30 // My tc_pot (=-1)
-#coeff =   [1.31866, 0.401574, 2.02504E-06, 0, 0]
-#coeff =   [-0.46, 0.3498, 1.43E-06 ]
-#coeff =   [0.35, 0.3492, 1.762E-06] # n15-00000042-n9-r5-f5-U150 myTcTcpot cs am lu thMantle 2024.11.09
-coeff =   [1, 0.3443, 5.015E-06, -3.682E-10 ] # n15-00000042-n9-r5-f5-U150 myTcTcpot cs am lu thMantle ra 2024.11.09
-
+coeff =  [ 1, 0.351, 2.4E-06, -8E-11, 0 ]   # 2026.07.09 VERSION 13 RISE 5 FALL 8 NOISE 11 F 1000000.00 MAX 14281 HYST 1 MODE 0 STEP 1 t 5416 POT 150 POT2 60 T1 31.5 T2 OFF T3 OFF Prise 40 Srise 8 OUT 0..0/1 Pfall 15 Sfall 15
 
 coeff = coeff + [0, 0, 0, 0, 0]
 coeff = coeff[0:5]
+
 
 echo = 'echo '
 
@@ -44,7 +40,6 @@ r_n = 0
 i = 0
 c_b = [ pack('d', 0.) ] * 12
 s = ''
-print("sleep 10\n")
 for  v in coeff:
 	c_b[i] = pack('d', coeff[i])
 	vv = unpack('II', c_b[i])

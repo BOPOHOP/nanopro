@@ -23,19 +23,19 @@ import binascii
 #coeff =   [-5.565360, 3.71104e-01, 5.86174e-06, -4.26725e-10, 0]   # nos14 rise5 fall8 prise40 srise8 pfall0 sfall0 MyTHR5
 
 #coeff =   [-9.95037, 0.377817, 4.70725e-06, -3.1341e-10, 0.0 ]   # nos14 rise5 fall8 prise40 srise8 pfall10 sfall15 MyTHR5
-#coeff =   [-5.01, 0.379, 6.852E-06, -5.637E-10, 0]   # n15-00000042-n15-r5-f8-U173 rise5 fall8 prise40 srise8 pfall10 sfall15 MyTHR5 2024.10.29 cs am th ra lu
-
-
-#coeff =   [-1.97, 0.3848, 6.303E-06, -5.142E-10, 0 ] # n15-00000042-n13-r5-f8-U150 prise40 srise8 pfall10 sfall15 MyU/max cs am th ra lu 2024.10.30
-# coeff =   [0.6, 0.3849, 6.303E-06, -5.142E-10, 0 ] # n15-00000042-n13-r5-f8-U150 prise40 srise8 pfall10 sfall15 MyU/max cs am th ra lu 2024.10.30 // My tc_pot (=-1)
-#coeff =   [1.31866, 0.401574, 2.02504E-06, 0, 0]
-#coeff =   [-0.46, 0.3498, 1.43E-06 ]
-#coeff =   [0.35, 0.3492, 1.762E-06] # n15-00000042-n9-r5-f5-U150 myTcTcpot cs am lu thMantle 2024.11.09
-coeff =   [1, 0.3443, 5.015E-06, -3.682E-10 ] # n15-00000042-n9-r5-f5-U150 myTcTcpot cs am lu thMantle ra 2024.11.09
-
+#coeff =   [3.55577, 0.346779, 1.54428E-05, -9.30348E-10, 0 ]   # p2 gs8000-00000210-n24-r5-f10
+#coeff =   [2.186, 0.378226, 1.53344E-05, -4.79623E-10, 0]   # p2 gs8000-00000210-n24-r5-f10
+#coeff =   [2.51649, 0.351147, 1.30098E-05, -6.48616E-10, 0]   # p2 gs8000-00000210-n24-r5-f10
+# coeff =   [1.80128, 0.384437, 6.13208E-06, 0, 0] # p2 gs8000-00000210-n18-r5-f10 cs
+#coeff =   [-1, 0.340684, 9.16068E-06, 0, 0]
+#coeff =   [-2.51939, 0.35202, 8.28517E-06, 0, 0]
+# coeff =   [-5.5, 0.3521, 5.221E-06, 8.046E-10, 0, 0] # VERSION 13 RISE 7 FALL 11 NOISE 9 F 21000000.00 MAX 25522 HYST 1 MODE 0 STEP 4 t 8343 POT 18 POT2 81 T1 23.5 T2 OFF T3 OFF Prise 60 Srise 7 Pfall 0 Sfall 0 
+coeff =   [-1.4, 0.3371, 1.57E-05, -4.843E-10]       # VERSION 13 RISE 7 FALL 11 NOISE 9 F 21000000.00 MAX 25522 HYST 1 MODE 0 STEP 4 t 1425 POT 18 POT2 81 T1 23.0 T2 OFF T3 OFF Prise 60 Srise 10 Pfall 0 Sfall 0
 
 coeff = coeff + [0, 0, 0, 0, 0]
 coeff = coeff[0:5]
+
+
 
 echo = 'echo '
 

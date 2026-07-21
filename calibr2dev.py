@@ -1,0 +1,33 @@
+#! /usr/bin/python3.11
+
+from struct import *
+import binascii
+
+
+
+coeff = [ -8.5, 0.3827, 2.127e-06, 0, 0 ]
+
+str = ''
+r_n = 0
+i = 0
+c_b = [ pack('d', 0.) ] * 12
+s = ''
+for  v in coeff:
+	c_b[i] = pack('d', coeff[i])
+	vv = unpack('II', c_b[i])
+	s += "%08X" % (vv[1])
+	print(coeff[i], vv)
+	print("-cal {} {:08X}".format(r_n, vv[1]))
+	s += "%08X" % (vv[0])
+	r_n += 1
+	print("-cal {} {:08X}".format(r_n, vv[0]))
+	r_n += 1
+	i += 1
+
+print(s)
+crc = binascii.crc32(bytearray(s, "ascii")) % 2**32
+
+
+print(s, crc)
+print("-cal {} {:08X}".format(r_n, crc))
+
